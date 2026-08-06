@@ -14,7 +14,7 @@ test("exports the live leaderboard route", async () => {
   const html = await readFile(new URL("../out/display/index.html", import.meta.url), "utf8");
   assert.match(html, /Live division leaderboard/);
   assert.match(html, /Leaderboard/);
-  assert.match(html, /ROLLING ACE POT/);
+  assert.doesNotMatch(html, /ROLLING ACE POT/);
 });
 
 test("ships the Google Sheets client instead of browser event storage", async () => {

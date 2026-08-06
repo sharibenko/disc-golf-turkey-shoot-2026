@@ -51,13 +51,13 @@ function setupTurkeyShoot() {
   Object.values(SHEETS).forEach((name) => {
     if (!spreadsheet.getSheetByName(name)) spreadsheet.insertSheet(name);
   });
-  writeState_({ participants: [], acePot: 0, revision: 0 });
+  writeState_({ participants: [], revision: 0 });
 }
 
 function readState_() {
   const sheet = getOrCreateSheet_(SHEETS.state);
   const raw = sheet.getRange("A2").getValue();
-  if (!raw) return { participants: [], acePot: 0, revision: 0 };
+  if (!raw) return { participants: [], revision: 0 };
   return sanitizeEvent_(JSON.parse(String(raw)));
 }
 
@@ -72,16 +72,16 @@ function writeState_(event) {
   stateSheet.setFrozenRows(1);
 
   writeTable_(spreadsheet, SHEETS.event,
-    ["Ace pot", "Last ace winner", "Revision", "Updated at"],
-    [[event.acePot, event.lastAceWinner || "", event.revision, new Date()]]);
+    ["Revision", "Updated at"],
+    [[event.revision, new Date()]]);
 
   const participants = event.participants.map((person) => [
-    person.id, person.name, person.joinedAt, person.aceWon || 0,
+    person.id, person.name, person.joinedAt,
     person.throws.filter(Boolean).length,
     person.throws.reduce((sum, item) => sum + (item ? item.points : 0), 0),
   ]);
   writeTable_(spreadsheet, SHEETS.participants,
-    ["Participant ID", "Name", "Signup time", "Ace winnings", "Throws recorded", "Total points"],
+    ["Participant ID", "Name", "Signup time", "Throws recorded", "Total points"],
     participants);
 
   const throws = [];
@@ -89,12 +89,12 @@ function writeState_(event) {
     person.throws.forEach((item, index) => {
       if (item) throws.push([
         person.id, person.name, index + 1, item.distance, item.outcome,
-        item.points, item.acePayout || 0,
+        item.points,
       ]);
     });
   });
   writeTable_(spreadsheet, SHEETS.throws,
-    ["Participant ID", "Participant", "Throw", "Distance (ft)", "Outcome", "Points", "Ace payout"],
+    ["Participant ID", "Participant", "Throw", "Distance (ft)", "Outcome", "Points"],
     throws);
 }
 
@@ -114,7 +114,6 @@ function sanitizeEvent_(input) {
     id: String(person.id || ""),
     name: String(person.name || "").slice(0, 100),
     joinedAt: String(person.joinedAt || ""),
-    aceWon: Math.max(0, Number(person.aceWon) || 0),
     throws: Array.from({ length: 10 }, (_, index) => {
       const item = Array.isArray(person.throws) ? person.throws[index] : null;
       if (!item || distances.indexOf(Number(item.distance)) < 0 || outcomes.indexOf(item.outcome) < 0) return null;
@@ -122,15 +121,12 @@ function sanitizeEvent_(input) {
         distance: Number(item.distance),
         outcome: item.outcome,
         points: Math.max(0, Number(item.points) || 0),
-        ...(Number(item.acePayout) > 0 ? { acePayout: Number(item.acePayout) } : {}),
       };
     }),
   })).filter((person) => person.id && person.name) : [];
 
   return {
     participants,
-    acePot: Math.max(0, Number(input.acePot) || 0),
-    ...(input.lastAceWinner ? { lastAceWinner: String(input.lastAceWinner).slice(0, 100) } : {}),
     revision: Math.max(0, Number(input.revision) || 0),
   };
 }

@@ -20,10 +20,10 @@ function endpoint(query = "") {
 
 function normalizeEvent(value: unknown): EventState {
   const event = value as Partial<EventState> | null;
-  if (!event || !Array.isArray(event.participants) || typeof event.acePot !== "number") {
+  if (!event || !Array.isArray(event.participants)) {
     return EMPTY_EVENT;
   }
-  return { ...event, revision: Number(event.revision) || 0 } as EventState;
+  return { participants: event.participants, revision: Number(event.revision) || 0 } as EventState;
 }
 
 export async function fetchEvent(signal?: AbortSignal): Promise<EventState> {

@@ -65,7 +65,7 @@ export default function TurkeyShootPage() {
     const name = String(new FormData(form).get("name") || "").trim();
     if (!name) return;
     const participant = { id: crypto.randomUUID(), name, joinedAt: new Date().toISOString(), throws: Array(10).fill(null) };
-    publish({ ...event, participants: [...event.participants, participant], acePot: event.acePot + 2 });
+    publish({ ...event, participants: [...event.participants, participant] });
     form.reset();
     if (!selectedId) setSelectedId(participant.id);
   }
@@ -77,14 +77,13 @@ export default function TurkeyShootPage() {
     const throwIndex = participant.throws.findIndex((item) => item === null);
     if (throwIndex < 0) return;
     const points = outcome === "Miss" ? 0 : POINTS[distance];
-    const wonPot = outcome === "Ace" ? event.acePot : undefined;
     const participants = event.participants.map((item) => {
       if (item.id !== selectedId) return item;
       const throws = [...item.throws];
-      throws[throwIndex] = { distance, outcome, points, acePayout: wonPot };
-      return { ...item, throws, aceWon: wonPot !== undefined ? (item.aceWon || 0) + wonPot : item.aceWon };
+      throws[throwIndex] = { distance, outcome, points };
+      return { ...item, throws };
     });
-    publish({ participants, acePot: outcome === "Ace" ? 0 : event.acePot, lastAceWinner: outcome === "Ace" ? participant.name : event.lastAceWinner, revision: event.revision });
+    publish({ participants, revision: event.revision });
   }
 
   function undoLast() {
@@ -92,14 +91,13 @@ export default function TurkeyShootPage() {
     const selectedPerson = event.participants.find((item) => item.id === selectedId);
     if (!selectedPerson) return;
     const lastIndex = selectedPerson.throws.findLastIndex((value) => value !== null);
-    const lastThrow = lastIndex >= 0 ? selectedPerson.throws[lastIndex] : null;
     const participants = event.participants.map((item) => {
       if (item.id !== selectedId) return item;
       const throws = [...item.throws];
       if (lastIndex >= 0) throws[lastIndex] = null;
-      return { ...item, throws, aceWon: lastThrow?.acePayout ? Math.max(0, (item.aceWon || 0) - lastThrow.acePayout) : item.aceWon };
+      return { ...item, throws };
     });
-    publish({ ...event, participants, acePot: event.acePot + (lastThrow?.acePayout || 0), lastAceWinner: lastThrow?.outcome === "Ace" ? undefined : event.lastAceWinner });
+    publish({ ...event, participants });
   }
 
   async function resetEvent(e: FormEvent<HTMLFormElement>) {
@@ -121,12 +119,12 @@ export default function TurkeyShootPage() {
     const advancedEnd = Math.ceil(scored.length / 3);
     const intermediateEnd = Math.ceil((scored.length * 2) / 3);
     const divisions = new Map(scored.map((person, index) => [person.id, index < advancedEnd ? "Advanced" : index < intermediateEnd ? "Intermediate" : "Beginner"]));
-    const throwHeaders = Array.from({ length: 10 }, (_, index) => [`Throw ${index + 1} Distance`, `Throw ${index + 1} Outcome`, `Throw ${index + 1} Points`, `Throw ${index + 1} Ace Payout`]).flat();
-    const headers = ["Participant", "Signup Time", "Status", "Throws Recorded", "Total Points", "Current Division", "Aces", "Total Ace Winnings", "Current Rolling Ace Pot", ...throwHeaders];
+    const throwHeaders = Array.from({ length: 10 }, (_, index) => [`Throw ${index + 1} Distance`, `Throw ${index + 1} Outcome`, `Throw ${index + 1} Points`]).flat();
+    const headers = ["Participant", "Signup Time", "Status", "Throws Recorded", "Total Points", "Current Division", "Aces", ...throwHeaders];
     const rows = event.participants.map((person) => {
       const count = person.throws.filter(Boolean).length;
-      const throwData = person.throws.flatMap<string | number>((item) => item ? [item.distance, item.outcome, item.points, item.acePayout || 0] : ["", "", "", ""]);
-      return [person.name, new Date(person.joinedAt).toLocaleString(), count === 10 ? "Complete" : count ? "In progress" : "Waiting", count, totalPoints(person), divisions.get(person.id) || "Not yet ranked", person.throws.filter((item) => item?.outcome === "Ace").length, person.aceWon || 0, event.acePot, ...throwData];
+      const throwData = person.throws.flatMap<string | number>((item) => item ? [item.distance, item.outcome, item.points] : ["", "", ""]);
+      return [person.name, new Date(person.joinedAt).toLocaleString(), count === 10 ? "Complete" : count ? "In progress" : "Waiting", count, totalPoints(person), divisions.get(person.id) || "Not yet ranked", person.throws.filter((item) => item?.outcome === "Ace").length, ...throwData];
     });
     const quote = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
     const csv = [headers, ...rows].map((row) => row.map(quote).join(",")).join("\r\n");
@@ -147,7 +145,7 @@ export default function TurkeyShootPage() {
     <main className="event-shell">
       <header className="event-header">
         <div className="event-brand"><span className="turkey-mark">TS</span><div><strong>Disc Golf Turkey Shoot</strong><small>Live scoring desk</small></div></div>
-        <div className="header-actions"><div className="ace-pot"><small>ROLLING ACE POT</small><strong>${event.acePot}</strong></div><button type="button" className="export-trigger" onClick={exportCsv}>Save CSV ↓</button><button type="button" className="reset-trigger" onClick={() => setResetOpen(true)}>Reset event</button><Link href="/display" target="_blank">Open leaderboard ↗</Link></div>
+        <div className="header-actions"><button type="button" className="export-trigger" onClick={exportCsv}>Save CSV ↓</button><button type="button" className="reset-trigger" onClick={() => setResetOpen(true)}>Reset event</button><Link href="/display" target="_blank">Open leaderboard ↗</Link></div>
       </header>
       {syncError && <div className="sync-alert" role="alert"><strong>Google Sheets connection:</strong> {syncError}</div>}
 
@@ -160,7 +158,7 @@ export default function TurkeyShootPage() {
       <section className="scoring-workspace">
         <aside className="signup-panel">
           <div className="panel-title"><div><p>STEP 01</p><h1>Signup queue</h1></div><span>{event.participants.length}</span></div>
-          <form onSubmit={addParticipant} className="signup-form"><label htmlFor="participant-name">Participant name or nickname</label><div><input id="participant-name" name="name" required autoComplete="off" placeholder="Enter name…" /><button type="submit" aria-label="Add participant">+</button></div><small>$10 entry · $2 automatically added to ace pot</small></form>
+          <form onSubmit={addParticipant} className="signup-form"><label htmlFor="participant-name">Participant name or nickname</label><div><input id="participant-name" name="name" required autoComplete="off" placeholder="Enter name…" /><button type="submit" aria-label="Add participant">+</button></div><small>$10 entry</small></form>
           <div className="queue-list">
             {event.participants.map((person, index) => {
               const count = person.throws.filter(Boolean).length;
@@ -175,7 +173,7 @@ export default function TurkeyShootPage() {
           {!selected ? <div className="select-prompt"><span>←</span><h2>Choose a name from the queue</h2><p>You can keep adding signups while another participant throws.</p></div> : <>
             <div className="throw-progress"><div><span>THROW</span><strong>{Math.min(throwCount + 1, 10)} <i>/ 10</i></strong></div><div className="progress-track"><i style={{ width: `${throwCount * 10}%` }} /></div><button type="button" onClick={undoLast} disabled={throwCount === 0 || saving}>Undo last</button></div>
             <div className="distance-picker"><p>1. Choose basket distance</p><div>{DISTANCES.map((feet) => <button type="button" className={distance === feet ? "active" : ""} onClick={() => setDistance(feet)} key={feet}><strong>{feet}</strong><small>FT · {POINTS[feet]} PTS</small></button>)}</div></div>
-            <div className="outcome-picker"><p>2. Record result</p><div><button type="button" className="miss-button" onClick={() => recordThrow("Miss")} disabled={throwCount === 10}><span>×</span><strong>Miss</strong><small>0 points</small></button><button type="button" className="circle-button" onClick={() => recordThrow("Circle")} disabled={throwCount === 10}><span>●</span><strong>Inside circle</strong><small>+{POINTS[distance]} points</small></button><button type="button" className="ace-button" onClick={() => recordThrow("Ace")} disabled={throwCount === 10}><span>★</span><strong>Ace!</strong><small>Win ${event.acePot} pot</small></button></div></div>
+            <div className="outcome-picker"><p>2. Record result</p><div><button type="button" className="miss-button" onClick={() => recordThrow("Miss")} disabled={throwCount === 10}><span>×</span><strong>Miss</strong><small>0 points</small></button><button type="button" className="circle-button" onClick={() => recordThrow("Circle")} disabled={throwCount === 10}><span>●</span><strong>Inside circle</strong><small>+{POINTS[distance]} points</small></button><button type="button" className="ace-button" onClick={() => recordThrow("Ace")} disabled={throwCount === 10}><span>★</span><strong>Ace!</strong><small>+{POINTS[distance]} points</small></button></div></div>
             <div className="throw-strip">{selected.throws.map((item, index) => <div className={item ? item.outcome.toLowerCase() : ""} key={index}><small>{index + 1}</small>{item ? <><strong>{item.points}</strong><span>{item.distance}ft · {item.outcome}</span></> : <><strong>—</strong><span>Not thrown</span></>}</div>)}</div>
             {throwCount === 10 && <div className="complete-banner"><span>✓</span><div><strong>Round complete — {totalPoints(selected)} points</strong><p>Select the next participant from the signup queue.</p></div></div>}
           </>}
@@ -185,7 +183,7 @@ export default function TurkeyShootPage() {
         <section className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-title">
           <button type="button" className="reset-close" onClick={() => { setResetOpen(false); setResetError(false); }} aria-label="Close reset dialog">×</button>
           <span className="reset-icon">!</span><p>PROTECTED ACTION</p><h2 id="reset-title">Reset the entire event?</h2>
-          <p className="reset-warning">This permanently clears every participant, throw, score, division, ace winner, and the rolling ace pot on this computer.</p>
+          <p className="reset-warning">This permanently clears every participant, throw, score, and division in the connected event.</p>
           <form onSubmit={resetEvent}><label htmlFor="reset-password">Event password</label><input id="reset-password" name="reset-password" type="password" autoFocus required autoComplete="off" placeholder="Enter password" onChange={() => setResetError(false)} />
             {resetError && <span className="reset-error" role="alert">The reset could not be authorized. Nothing was reset.</span>}
             <div><button type="button" onClick={() => { setResetOpen(false); setResetError(false); }}>Cancel</button><button type="submit">Reset all event data</button></div>

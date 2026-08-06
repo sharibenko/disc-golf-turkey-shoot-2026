@@ -1,6 +1,6 @@
 # Disc Golf Turkey Shoot
 
-A live signup, scoring, ace-pot, and three-division leaderboard for a disc golf Turkey Shoot.
+A live signup, scoring, and three-division leaderboard for a disc golf Turkey Shoot.
 
 The site is a static Next.js export hosted by GitHub Pages. Shared event data is stored in Google Sheets through a Google Apps Script web app; no Firebase project or browser database is required.
 
@@ -58,9 +58,8 @@ The workflow in [`.github/workflows/pages.yml`](.github/workflows/pages.yml) bui
 
 ## Event behavior
 
-- Signup adds $2 to the rolling ace pot.
 - Each participant records ten throws.
-- Circle hits score by distance; misses score zero; an ace awards the current pot.
+- Circle hits and aces score by distance; misses score zero.
 - The leaderboard polls the Sheet-backed API and divides active scorers into balanced thirds.
 - CSV export remains a local download of the current shared state.
 - Reset and all scoring writes require the Apps Script `ADMIN_PIN`.
