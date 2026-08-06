@@ -144,8 +144,8 @@ export default function TurkeyShootPage() {
   return (
     <main className="event-shell">
       <header className="event-header">
-        <div className="event-brand"><span className="turkey-mark">TS</span><div><strong>Disc Golf Turkey Shoot</strong><small>Live scoring desk</small></div></div>
-        <div className="header-actions"><button type="button" className="export-trigger" onClick={exportCsv}>Save CSV ↓</button><button type="button" className="reset-trigger" onClick={() => setResetOpen(true)}>Reset event</button><Link href="/display" target="_blank">Open leaderboard ↗</Link></div>
+        <div className="event-brand"><div><strong>Disc Golf Turkey Shoot</strong><small>Live scoring desk</small></div></div>
+        <div className="header-actions"><Link href="/display" target="_blank">Open leaderboard ↗</Link></div>
       </header>
       {syncError && <div className="sync-alert" role="alert"><strong>Google Sheets connection:</strong> {syncError}</div>}
 
@@ -179,6 +179,10 @@ export default function TurkeyShootPage() {
           </>}
         </section>
       </section>
+      <footer className="event-footer">
+        <div className="event-footer-copy"><small>END OF EVENT TOOLS</small><span>Save a final backup or clear the event when scoring is complete.</span></div>
+        <div className="event-footer-actions"><button type="button" className="export-trigger" onClick={exportCsv}>Save CSV ↓</button><button type="button" className="reset-trigger" onClick={() => setResetOpen(true)}>Reset event</button></div>
+      </footer>
       {resetOpen && <div className="reset-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setResetOpen(false); }}>
         <section className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-title">
           <button type="button" className="reset-close" onClick={() => { setResetOpen(false); setResetError(false); }} aria-label="Close reset dialog">×</button>

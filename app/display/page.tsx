@@ -17,7 +17,7 @@ function Division({ name, people, startRank }: { name: DivisionName; people: Par
       <div><span>{name === "Advanced" ? "A" : name === "Intermediate" ? "I" : "B"}</span><div><p>{name} division</p><small>{range} · {people.length} {people.length === 1 ? "player" : "players"}</small></div></div>
       {people.length > 0 && <b>Top ⅓ by live score</b>}
     </header>
-    <div className="leader-head"><span>PLACE</span><span>PARTICIPANT</span><span>THROWS</span><span>ACES</span><span>SCORE</span></div>
+    <div className="leader-head"><span>PLACE</span><span aria-hidden="true" /><span>THROWS</span><span>ACES</span><span>SCORE</span></div>
     {people.map((person, index) => {
       const score = totalPoints(person);
       const isWinner = score === winnerScore;
@@ -55,8 +55,8 @@ export default function LeaderboardPage() {
   const beginner = ranked.slice(intermediateEnd);
   const waiting = event.participants.length - ranked.length;
   return <main className="leaderboard-shell">
-    <header className="leaderboard-header"><div className="event-brand"><span className="turkey-mark">TS</span><div><strong>Disc Golf Turkey Shoot</strong><small>Live division leaderboard</small></div></div><div className="live-badge"><i /> Live scoring</div><Link href="/">Scoring desk</Link></header>
-    <section className="leaderboard-hero"><div><p>THREE LIVE PRIZE DIVISIONS</p><h1>Leaderboard</h1><small className="division-note">Players are ranked by score and automatically divided into balanced thirds. Divisions update after every throw.</small>{syncError && <small className="sync-error">Google Sheets connection: {syncError}</small>}</div></section>
+    <header className="leaderboard-header"><div className="event-brand"><div><strong>Disc Golf Turkey Shoot</strong></div></div><div className="live-badge"><i /> Live scoring</div><Link href="/">Scoring desk</Link></header>
+    <section className="leaderboard-hero"><div><p>THREE LIVE PRIZE DIVISIONS</p><h1>Leaderboard</h1>{syncError && <small className="sync-error">Google Sheets connection: {syncError}</small>}</div></section>
     {ranked.length ? <div className="division-list"><Division name="Advanced" people={advanced} startRank={1} /><Division name="Intermediate" people={intermediate} startRank={advancedEnd + 1} /><Division name="Beginner" people={beginner} startRank={intermediateEnd + 1} />{waiting > 0 && <p className="waiting-count">{waiting} signed-up {waiting === 1 ? "participant is" : "participants are"} waiting to record a first throw.</p>}</div> : <section className="leader-list"><div className="leader-empty"><span>◎</span><h2>Waiting for the first scored throw</h2><p>Divisions form automatically as participants begin scoring.</p></div></section>}
   </main>;
 }
