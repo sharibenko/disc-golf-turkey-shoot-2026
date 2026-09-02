@@ -108,7 +108,7 @@ function writeTable_(spreadsheet, name, headers, rows) {
 }
 
 function sanitizeEvent_(input) {
-  const distances = [150, 225, 300, 350, 400];
+  const distances = [200, 250, 300, 350];
   const outcomes = ["Miss", "Circle", "Ace"];
   const participants = Array.isArray(input.participants) ? input.participants.map((person) => ({
     id: String(person.id || ""),

@@ -1,6 +1,6 @@
-export const DISTANCES = [150, 225, 300, 350, 400] as const;
+export const DISTANCES = [200, 250, 300, 350] as const;
 export type Distance = (typeof DISTANCES)[number];
-export const POINTS: Record<Distance, number> = { 150: 5, 225: 10, 300: 15, 350: 20, 400: 25 };
+export const POINTS: Record<Distance, number> = { 200: 100, 250: 200, 300: 300, 350: 400 };
 export type ThrowOutcome = "Miss" | "Circle" | "Ace";
 export type ThrowResult = { distance: Distance; outcome: ThrowOutcome; points: number };
 export type Participant = {

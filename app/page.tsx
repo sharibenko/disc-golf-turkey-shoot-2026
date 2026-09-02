@@ -8,7 +8,7 @@ import { fetchEvent, saveEvent, SheetsApiError } from "./sheets-api";
 export default function TurkeyShootPage() {
   const [event, setEvent] = useState<EventState>(EMPTY_EVENT);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [distance, setDistance] = useState<Distance>(150);
+  const [distance, setDistance] = useState<Distance>(200);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetError, setResetError] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -109,7 +109,7 @@ export default function TurkeyShootPage() {
       return;
     }
     setSelectedId(null);
-    setDistance(150);
+    setDistance(200);
     setResetError(false);
     setResetOpen(false);
   }

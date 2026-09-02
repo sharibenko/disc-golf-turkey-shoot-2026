@@ -5,7 +5,7 @@ import Link from "next/link";
 import { CHANNEL_NAME, EMPTY_EVENT, totalPoints, type EventState, type Participant } from "../live-store";
 import { fetchEvent } from "../sheets-api";
 
-const MAX_SCORE = 250;
+const MAX_SCORE = 4000;
 type DivisionName = "Advanced" | "Intermediate" | "Beginner";
 
 function Division({ name, people, startRank }: { name: DivisionName; people: Participant[]; startRank: number }) {
