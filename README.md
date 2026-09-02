@@ -1,4 +1,4 @@
-# Disc Golf Turkey Shoot
+# Turkey Target Challenge 2026
 
 A live signup, scoring, and three-division leaderboard for a disc golf Turkey Shoot.
 
@@ -59,7 +59,9 @@ The workflow in [`.github/workflows/pages.yml`](.github/workflows/pages.yml) bui
 ## Event behavior
 
 - Each participant records ten throws.
-- Circle hits and aces score by distance; misses score zero.
+- New signups appear first in the searchable queue; active rounds show by default, with filters for all or finished players and sorting by signup time, name, or score.
+- Queue numbers preserve original signup order, and newly completed rounds record their finish time.
+- Circle hits score the distance value, aces score double the distance value, and misses score zero.
 - The leaderboard polls the Sheet-backed API and divides active scorers into balanced thirds.
 - CSV export remains a local download of the current shared state.
 - Reset and all scoring writes require the Apps Script `ADMIN_PIN`.

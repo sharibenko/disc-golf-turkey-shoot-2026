@@ -5,17 +5,15 @@ import Link from "next/link";
 import { CHANNEL_NAME, EMPTY_EVENT, totalPoints, type EventState, type Participant } from "../live-store";
 import { fetchEvent } from "../sheets-api";
 
-const MAX_SCORE = 4000;
 type DivisionName = "Advanced" | "Intermediate" | "Beginner";
 
 function Division({ name, people, startRank }: { name: DivisionName; people: Participant[]; startRank: number }) {
   const winnerScore = people.length ? totalPoints(people[0]) : null;
-  const scores = people.map(totalPoints);
-  const range = people.length ? `${Math.min(...scores)}–${name === "Advanced" ? MAX_SCORE : Math.max(...scores)} pts` : "Awaiting scores";
+  const divisionPosition = name === "Advanced" ? "Upper" : name === "Intermediate" ? "Middle" : "Lower";
   return <section className={`division division-${name.toLowerCase()}`}>
     <header className="division-title">
-      <div><span>{name === "Advanced" ? "A" : name === "Intermediate" ? "I" : "B"}</span><div><p>{name} division</p><small>{range} · {people.length} {people.length === 1 ? "player" : "players"}</small></div></div>
-      {people.length > 0 && <b>Top ⅓ by live score</b>}
+      <div><span>{name === "Advanced" ? "A" : name === "Intermediate" ? "I" : "B"}</span><div><p>{name} division</p><small>{people.length} {people.length === 1 ? "player" : "players"}</small></div></div>
+      {people.length > 0 && <b>{divisionPosition} ⅓ by live score</b>}
     </header>
     <div className="leader-head"><span>PLACE</span><span aria-hidden="true" /><span>THROWS</span><span>ACES</span><span>SCORE</span></div>
     {people.map((person, index) => {
@@ -55,7 +53,7 @@ export default function LeaderboardPage() {
   const beginner = ranked.slice(intermediateEnd);
   const waiting = event.participants.length - ranked.length;
   return <main className="leaderboard-shell">
-    <header className="leaderboard-header"><div className="event-brand"><div><strong>Disc Golf Turkey Shoot</strong></div></div><div className="live-badge"><i /> Live scoring</div><Link href="/">Scoring desk</Link></header>
+    <header className="leaderboard-header"><div className="event-brand"><div><strong>Turkey Target Challenge 2026</strong></div></div><div className="live-badge"><i /> Live scoring</div><Link href="/">Scoring desk</Link></header>
     <section className="leaderboard-hero"><div><p>THREE LIVE PRIZE DIVISIONS</p><h1>Leaderboard</h1>{syncError && <small className="sync-error">Google Sheets connection: {syncError}</small>}</div></section>
     {ranked.length ? <div className="division-list"><Division name="Advanced" people={advanced} startRank={1} /><Division name="Intermediate" people={intermediate} startRank={advancedEnd + 1} /><Division name="Beginner" people={beginner} startRank={intermediateEnd + 1} />{waiting > 0 && <p className="waiting-count">{waiting} signed-up {waiting === 1 ? "participant is" : "participants are"} waiting to record a first throw.</p>}</div> : <section className="leader-list"><div className="leader-empty"><span>◎</span><h2>Waiting for the first scored throw</h2><p>Divisions form automatically as participants begin scoring.</p></div></section>}
   </main>;
