@@ -5,23 +5,21 @@ import Link from "next/link";
 import { CHANNEL_NAME, EMPTY_EVENT, totalPoints, type EventState, type Participant } from "../live-store";
 import { fetchEvent } from "../sheets-api";
 
-const MAX_SCORE = 250;
 type DivisionName = "Advanced" | "Intermediate" | "Beginner";
 
 function Division({ name, people, startRank }: { name: DivisionName; people: Participant[]; startRank: number }) {
   const winnerScore = people.length ? totalPoints(people[0]) : null;
-  const scores = people.map(totalPoints);
-  const range = people.length ? `${Math.min(...scores)}–${name === "Advanced" ? MAX_SCORE : Math.max(...scores)} pts` : "Awaiting scores";
+  const divisionPosition = name === "Advanced" ? "Upper" : name === "Intermediate" ? "Middle" : "Lower";
   return <section className={`division division-${name.toLowerCase()}`}>
     <header className="division-title">
-      <div><span>{name === "Advanced" ? "A" : name === "Intermediate" ? "I" : "B"}</span><div><p>{name} division</p><small>{range} · {people.length} {people.length === 1 ? "player" : "players"}</small></div></div>
-      {people.length > 0 && <b>Top ⅓ by live score</b>}
+      <div><span>{name === "Advanced" ? "A" : name === "Intermediate" ? "I" : "B"}</span><div><p>{name} division</p><small>{people.length} {people.length === 1 ? "player" : "players"}</small></div></div>
+      {people.length > 0 && <b>{divisionPosition} ⅓ by live score</b>}
     </header>
-    <div className="leader-head"><span>PLACE</span><span>PARTICIPANT</span><span>THROWS</span><span>ACES</span><span>SCORE</span></div>
+    <div className="leader-head"><span>PLACE</span><span aria-hidden="true" /><span>THROWS</span><span>ACES</span><span>SCORE</span></div>
     {people.map((person, index) => {
       const score = totalPoints(person);
       const isWinner = score === winnerScore;
-      return <article className={isWinner ? "division-winner" : ""} key={person.id}><span className="place">{String(startRank + index).padStart(2, "0")}</span><strong>{person.name}{isWinner && <em>Current winner</em>}</strong><span>{person.throws.filter(Boolean).length} / 10</span><span>{person.throws.filter((item) => item?.outcome === "Ace").length}{person.aceWon ? ` · $${person.aceWon} won` : ""}</span><b>{score} <small>PTS</small></b></article>;
+      return <article className={isWinner ? "division-winner" : ""} key={person.id}><span className="place">{String(startRank + index).padStart(2, "0")}</span><strong>{person.name}{isWinner && <em>Current winner</em>}</strong><span>{person.throws.filter(Boolean).length} / 10</span><span>{person.throws.filter((item) => item?.outcome === "Ace").length}</span><b>{score} <small>PTS</small></b></article>;
     })}
     {!people.length && <div className="division-empty">This division will fill as scoring data comes in.</div>}
   </section>;
@@ -55,8 +53,8 @@ export default function LeaderboardPage() {
   const beginner = ranked.slice(intermediateEnd);
   const waiting = event.participants.length - ranked.length;
   return <main className="leaderboard-shell">
-    <header className="leaderboard-header"><div className="event-brand"><span className="turkey-mark">TS</span><div><strong>Disc Golf Turkey Shoot</strong><small>Live division leaderboard</small></div></div><div className="live-badge"><i /> Live scoring</div><Link href="/">Scoring desk</Link></header>
-    <section className="leaderboard-hero"><div><p>THREE LIVE PRIZE DIVISIONS</p><h1>Leaderboard</h1><small className="division-note">Players are ranked by score and automatically divided into balanced thirds. Divisions update after every throw.</small>{syncError && <small className="sync-error">Google Sheets connection: {syncError}</small>}</div><div className="pot-display"><span>ROLLING ACE POT</span><strong>${event.acePot}</strong>{event.lastAceWinner && <small>Last ace: {event.lastAceWinner}</small>}</div></section>
+    <header className="leaderboard-header"><div className="event-brand"><div><strong>Turkey Target Challenge 2026</strong></div></div><div className="live-badge"><i /> Live scoring</div><Link href="/">Scoring desk</Link></header>
+    <section className="leaderboard-hero"><div><p>THREE LIVE PRIZE DIVISIONS</p><h1>Leaderboard</h1>{syncError && <small className="sync-error">Google Sheets connection: {syncError}</small>}</div></section>
     {ranked.length ? <div className="division-list"><Division name="Advanced" people={advanced} startRank={1} /><Division name="Intermediate" people={intermediate} startRank={advancedEnd + 1} /><Division name="Beginner" people={beginner} startRank={intermediateEnd + 1} />{waiting > 0 && <p className="waiting-count">{waiting} signed-up {waiting === 1 ? "participant is" : "participants are"} waiting to record a first throw.</p>}</div> : <section className="leader-list"><div className="leader-empty"><span>◎</span><h2>Waiting for the first scored throw</h2><p>Divisions form automatically as participants begin scoring.</p></div></section>}
   </main>;
 }
