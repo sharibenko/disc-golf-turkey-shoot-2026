@@ -7,8 +7,7 @@ test("exports the scoring desk for static hosting", async () => {
   assert.match(html, /<title>Turkey Target Challenge 2026/);
   assert.match(html, /Turkey Target Challenge 2026/);
   assert.match(html, /Live scoring desk/);
-  assert.match(html, /Signup queue/);
-  assert.match(html, /Complete Scoring/);
+  assert.match(html, /End Event/);
 });
 
 test("exports the live leaderboard route", async () => {
@@ -27,8 +26,11 @@ test("uses the current event distances and scoring values", async () => {
   assert.match(store, /DISTANCES = \[200, 250, 300, 350\]/);
   assert.match(store, /200: 100, 250: 200, 300: 300, 350: 400/);
   assert.match(store, /outcome === "Ace" \? 2 : 1/);
+  assert.match(store, /THROWS_PER_ROUND = 6/);
+  assert.match(store, /bestRounds/);
   assert.match(appsScript, /distances = \[200, 250, 300, 350\]/);
   assert.match(appsScript, /item\.outcome === "Ace" \? 2 : 1/);
+  assert.match(appsScript, /length: 6/);
 });
 
 test("ships the Google Sheets client instead of browser event storage", async () => {
@@ -40,9 +42,17 @@ test("ships the Google Sheets client instead of browser event storage", async ()
   assert.doesNotMatch(page, /localStorage/);
   assert.doesNotMatch(display, /localStorage/);
   assert.match(page, /Search players/);
-  assert.match(page, /Newest first/);
+  assert.match(page, /name="email"/);
+  assert.match(page, /bestRounds/);
+  assert.match(page, /Show players/);
+  assert.match(page, /All players/);
   assert.match(page, /Active rounds/);
   assert.match(page, /Finished rounds/);
+  assert.doesNotMatch(page, /Sort queue/);
+  assert.match(page, /Start another round/);
+  assert.match(page, /Show all players/);
+  assert.match(page, /Edit Scores/);
+  assert.match(page, /Delete throw/);
   assert.match(page, /participants: \[participant, \.\.\.event\.participants\]/);
   assert.match(page, /signupNumberById/);
   assert.match(page, /completedAt/);
