@@ -10,10 +10,15 @@ export type Participant = {
   completedAt: string | null;
   throws: (ThrowResult | null)[];
 };
-export type EventState = { participants: Participant[]; revision: number };
+export type EventState = {
+  participants: Participant[];
+  revision: number;
+  status: "live" | "complete";
+  completedAt: string | null;
+};
 
 export const CHANNEL_NAME = "turkey-shoot-updates";
-export const EMPTY_EVENT: EventState = { participants: [], revision: 0 };
+export const EMPTY_EVENT: EventState = { participants: [], revision: 0, status: "live", completedAt: null };
 
 export function pointsForOutcome(distance: Distance, outcome: ThrowOutcome) {
   if (outcome === "Miss") return 0;
