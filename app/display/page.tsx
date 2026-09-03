@@ -4,14 +4,14 @@ import { useEffect, useState } from "react";
 import { bestRounds, CHANNEL_NAME, DISTANCES, EMPTY_EVENT, POINTS, THROWS_PER_ROUND, totalPoints, type EventState, type Participant } from "../live-store";
 import { fetchEvent } from "../sheets-api";
 
-type DivisionName = "Advanced" | "Intermediate" | "Beginner";
+type DivisionName = "Top Turkeys" | "Middle of the Flock" | "Wild Gobblers";
 
 function Division({ name, people, startRank, isFinal }: { name: DivisionName; people: Participant[]; startRank: number; isFinal: boolean }) {
   const winnerScore = people.length ? totalPoints(people[0]) : null;
-  const divisionPosition = name === "Advanced" ? "Upper" : name === "Intermediate" ? "Middle" : "Lower";
+  const divisionPosition = name === "Top Turkeys" ? "Upper" : name === "Middle of the Flock" ? "Middle" : "Lower";
   return <section className={`division division-${name.toLowerCase()}`}>
     <header className="division-title">
-      <div><span>{name === "Advanced" ? "A" : name === "Intermediate" ? "I" : "B"}</span><div><p>{name} division</p><small>{people.length} {people.length === 1 ? "player" : "players"}</small></div></div>
+      <div><span>{name === "Top Turkeys" ? "T" : name === "Middle of the Flock" ? "M" : "W"}</span><div><p>{name} division</p><small>{people.length} {people.length === 1 ? "player" : "players"}</small></div></div>
       {people.length > 0 && <b>{divisionPosition} ⅓ by {isFinal ? "final" : "live"} score</b>}
     </header>
     <div className="leader-head"><span>PLACE</span><span aria-hidden="true" /><span>THROWS</span><span>ACES</span><span>SCORE</span></div>
@@ -60,6 +60,6 @@ export default function LeaderboardPage() {
       <p>Inside 3m / 15ft counts</p>
     </section>
     {syncError && <small className="sync-error leaderboard-sync-error">Google Sheets connection: {syncError}</small>}
-    {ranked.length ? <div className="division-list"><Division name="Advanced" people={advanced} startRank={1} isFinal={isFinal} /><Division name="Intermediate" people={intermediate} startRank={advancedEnd + 1} isFinal={isFinal} /><Division name="Beginner" people={beginner} startRank={intermediateEnd + 1} isFinal={isFinal} />{waiting > 0 && <p className="waiting-count">{waiting} paid {waiting === 1 ? "round is" : "rounds are"} waiting to record a first throw.</p>}</div> : <section className="leader-list"><div className="leader-empty"><span>◎</span><h2>Waiting for the first scored throw</h2><p>Divisions form automatically from each player’s best round.</p></div></section>}
+    {ranked.length ? <div className="division-list"><Division name="Top Turkeys" people={advanced} startRank={1} isFinal={isFinal} /><Division name="Middle of the Flock" people={intermediate} startRank={advancedEnd + 1} isFinal={isFinal} /><Division name="Wild Gobblers" people={beginner} startRank={intermediateEnd + 1} isFinal={isFinal} />{waiting > 0 && <p className="waiting-count">{waiting} paid {waiting === 1 ? "round is" : "rounds are"} waiting to record a first throw.</p>}</div> : <section className="leader-list"><div className="leader-empty"><span>◎</span><h2>Waiting for the first scored throw</h2><p>Divisions form automatically from each player’s best round.</p></div></section>}
   </main>;
 }

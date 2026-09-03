@@ -163,7 +163,7 @@ export default function TurkeyShootPage() {
     const scored = bestRounds(source.participants);
     const advancedEnd = Math.ceil(scored.length / 3);
     const intermediateEnd = Math.ceil((scored.length * 2) / 3);
-    const divisions = new Map(scored.map((person, index) => [person.id, index < advancedEnd ? "Advanced" : index < intermediateEnd ? "Intermediate" : "Beginner"]));
+    const divisions = new Map(scored.map((person, index) => [person.id, index < advancedEnd ? "Top Turkeys" : index < intermediateEnd ? "Middle of the Flock" : "Wild Gobblers"]));
     const throwHeaders = Array.from({ length: THROWS_PER_ROUND }, (_, index) => [`Throw ${index + 1} Distance`, `Throw ${index + 1} Outcome`, `Throw ${index + 1} Points`]).flat();
     const headers = ["Participant", "Email", "Paid Round", "Signup Time", "Completion Time", "Status", "Throws Recorded", "Total Points", "Leaderboard Round", "Current Division", "Aces", ...throwHeaders];
     const rows = source.participants.map((person) => {
