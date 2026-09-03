@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { CHANNEL_NAME, DISTANCES, EMPTY_EVENT, POINTS, pointsForOutcome, totalPoints, type Distance, type EventState, type ThrowOutcome } from "./live-store";
+import { bestRounds, CHANNEL_NAME, DISTANCES, EMPTY_EVENT, normalizeEmail, POINTS, pointsForOutcome, roundNumber, THROWS_PER_ROUND, totalPoints, type Distance, type EventState, type ThrowOutcome } from "./live-store";
 import { fetchEvent, saveEvent, SheetsApiError } from "./sheets-api";
 
 export default function TurkeyShootPage() {
@@ -14,8 +14,9 @@ export default function TurkeyShootPage() {
   const [saving, setSaving] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [queueSearch, setQueueSearch] = useState("");
-  const [queueSort, setQueueSort] = useState<"newest" | "oldest" | "name" | "score">("newest");
-  const [queueFilter, setQueueFilter] = useState<"active" | "all" | "finished">("active");
+  const [queueFilter, setQueueFilter] = useState<"all" | "active" | "finished">("all");
+  const [queueFocused, setQueueFocused] = useState(false);
+  const [editingScores, setEditingScores] = useState(false);
   const saveInFlight = useRef(false);
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
@@ -71,8 +72,9 @@ export default function TurkeyShootPage() {
     if (event.status === "complete") return;
     const form = e.currentTarget;
     const name = String(new FormData(form).get("name") || "").trim();
-    if (!name) return;
-    const participant = { id: crypto.randomUUID(), name, joinedAt: new Date().toISOString(), completedAt: null, throws: Array(10).fill(null) };
+    const email = normalizeEmail(String(new FormData(form).get("email") || ""));
+    if (!name || !email) return;
+    const participant = { id: crypto.randomUUID(), name, email, joinedAt: new Date().toISOString(), completedAt: null, throws: Array(THROWS_PER_ROUND).fill(null) };
     publish({ ...event, participants: [participant, ...event.participants] });
     form.reset();
     if (!selectedId) setSelectedId(participant.id);
@@ -89,7 +91,7 @@ export default function TurkeyShootPage() {
       if (item.id !== selectedId) return item;
       const throws = [...item.throws];
       throws[throwIndex] = { distance, outcome, points };
-      return { ...item, throws, completedAt: throwIndex === throws.length - 1 ? new Date().toISOString() : item.completedAt };
+      return { ...item, throws, completedAt: throws.every(Boolean) ? new Date().toISOString() : item.completedAt };
     });
     publish({ ...event, participants });
   }
@@ -103,9 +105,42 @@ export default function TurkeyShootPage() {
       if (item.id !== selectedId) return item;
       const throws = [...item.throws];
       if (lastIndex >= 0) throws[lastIndex] = null;
-      return { ...item, throws, completedAt: lastIndex === throws.length - 1 ? null : item.completedAt };
+      return { ...item, throws, completedAt: null };
     });
     publish({ ...event, participants });
+  }
+
+  async function deleteThrow(throwIndex: number) {
+    if (!selectedId || event.status === "complete" || !editingScores) return;
+    const participants = event.participants.map((item) => {
+      if (item.id !== selectedId) return item;
+      const throws = [...item.throws];
+      throws[throwIndex] = null;
+      return { ...item, throws, completedAt: null };
+    });
+    const persisted = await publish({ ...event, participants });
+    if (!persisted) return;
+    setEditingScores(false);
+    window.requestAnimationFrame(() => document.querySelector<HTMLElement>(".distance-picker button")?.focus());
+  }
+
+  async function startAnotherRound() {
+    if (!selected || event.status === "complete" || selected.throws.filter(Boolean).length !== THROWS_PER_ROUND) return;
+    const participant = {
+      id: crypto.randomUUID(),
+      name: selected.name,
+      email: normalizeEmail(selected.email),
+      joinedAt: new Date().toISOString(),
+      completedAt: null,
+      throws: Array(THROWS_PER_ROUND).fill(null),
+    };
+    const persisted = await publish({ ...event, participants: [participant, ...event.participants] });
+    if (!persisted) return;
+    setSelectedId(participant.id);
+    setEditingScores(false);
+    setQueueSearch("");
+    setQueueFilter("active");
+    setQueueFocused(true);
   }
 
   async function resetEvent(e: FormEvent<HTMLFormElement>) {
@@ -117,22 +152,24 @@ export default function TurkeyShootPage() {
       return;
     }
     setSelectedId(null);
+    setQueueFocused(false);
+    setEditingScores(false);
     setDistance(200);
     setResetError(false);
     setResetOpen(false);
   }
 
   function exportCsv(source: EventState = event) {
-    const scored = [...source.participants].filter((person) => person.throws.some(Boolean)).sort((a, b) => totalPoints(b) - totalPoints(a) || a.joinedAt.localeCompare(b.joinedAt));
+    const scored = bestRounds(source.participants);
     const advancedEnd = Math.ceil(scored.length / 3);
     const intermediateEnd = Math.ceil((scored.length * 2) / 3);
     const divisions = new Map(scored.map((person, index) => [person.id, index < advancedEnd ? "Advanced" : index < intermediateEnd ? "Intermediate" : "Beginner"]));
-    const throwHeaders = Array.from({ length: 10 }, (_, index) => [`Throw ${index + 1} Distance`, `Throw ${index + 1} Outcome`, `Throw ${index + 1} Points`]).flat();
-    const headers = ["Participant", "Signup Time", "Completion Time", "Status", "Throws Recorded", "Total Points", "Current Division", "Aces", ...throwHeaders];
+    const throwHeaders = Array.from({ length: THROWS_PER_ROUND }, (_, index) => [`Throw ${index + 1} Distance`, `Throw ${index + 1} Outcome`, `Throw ${index + 1} Points`]).flat();
+    const headers = ["Participant", "Email", "Paid Round", "Signup Time", "Completion Time", "Status", "Throws Recorded", "Total Points", "Leaderboard Round", "Current Division", "Aces", ...throwHeaders];
     const rows = source.participants.map((person) => {
       const count = person.throws.filter(Boolean).length;
       const throwData = person.throws.flatMap<string | number>((item) => item ? [item.distance, item.outcome, item.points] : ["", "", ""]);
-      return [person.name, new Date(person.joinedAt).toLocaleString(), person.completedAt ? new Date(person.completedAt).toLocaleString() : "", count === 10 ? "Complete" : count ? "In progress" : "Waiting", count, totalPoints(person), divisions.get(person.id) || "Not yet ranked", person.throws.filter((item) => item?.outcome === "Ace").length, ...throwData];
+      return [person.name, person.email, roundNumber(person, source.participants), new Date(person.joinedAt).toLocaleString(), person.completedAt ? new Date(person.completedAt).toLocaleString() : "", count === THROWS_PER_ROUND ? "Complete" : count ? "In progress" : "Waiting", count, totalPoints(person), scored.some((round) => round.id === person.id) ? "Best score" : "Superseded", divisions.get(person.id) || "Not ranked", person.throws.filter((item) => item?.outcome === "Ace").length, ...throwData];
     });
     const quote = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
     const csv = [headers, ...rows].map((row) => row.map(quote).join(",")).join("\r\n");
@@ -158,6 +195,8 @@ export default function TurkeyShootPage() {
 
   const selected = event.participants.find((item) => item.id === selectedId) || null;
   const throwCount = selected?.throws.filter(Boolean).length || 0;
+  const nextThrowIndex = selected?.throws.findIndex((item) => item === null) ?? -1;
+  const currentThrowNumber = nextThrowIndex >= 0 ? nextThrowIndex + 1 : THROWS_PER_ROUND;
   const scoringComplete = event.status === "complete";
   const hasScores = event.participants.some((person) => person.throws.some(Boolean));
   const normalizedQueueSearch = queueSearch.trim().toLocaleLowerCase();
@@ -165,17 +204,13 @@ export default function TurkeyShootPage() {
     .sort((a, b) => a.joinedAt.localeCompare(b.joinedAt) || a.id.localeCompare(b.id))
     .map((person, index) => [person.id, index + 1]));
   const visibleParticipants = [...event.participants]
+    .filter((person) => !queueFocused || !selectedId || person.id === selectedId)
     .filter((person) => {
-      const finished = person.throws.filter(Boolean).length === 10;
+      const finished = person.throws.filter(Boolean).length === THROWS_PER_ROUND;
       return queueFilter === "all" || (queueFilter === "finished" ? finished : !finished);
     })
-    .filter((person) => person.name.toLocaleLowerCase().includes(normalizedQueueSearch))
-    .sort((a, b) => {
-      if (queueSort === "oldest") return a.joinedAt.localeCompare(b.joinedAt);
-      if (queueSort === "name") return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-      if (queueSort === "score") return totalPoints(b) - totalPoints(a) || b.joinedAt.localeCompare(a.joinedAt);
-      return b.joinedAt.localeCompare(a.joinedAt);
-    });
+    .filter((person) => `${person.name} ${person.email}`.toLocaleLowerCase().includes(normalizedQueueSearch))
+    .sort((a, b) => b.joinedAt.localeCompare(a.joinedAt));
 
   return (
     <main className="event-shell">
@@ -186,45 +221,39 @@ export default function TurkeyShootPage() {
       {syncError && <div className="sync-alert" role="alert"><strong>Google Sheets connection:</strong> {syncError}</div>}
       {scoringComplete && <div className="event-complete-alert" role="status"><strong>Scoring complete</strong><span>The final leaderboard is published. Scoring controls are locked.</span></div>}
 
-      <section className="score-reference">
-        <span>Circle hit scoring</span>
-        {DISTANCES.map((feet) => <div key={feet}><strong>{feet}<small>FT</small></strong><b>{POINTS[feet]} PTS</b></div>)}
-        <p>Inside 3m / 15ft counts</p>
-      </section>
-
       <section className="scoring-workspace">
         <aside className="signup-panel">
-          <div className="panel-title"><div><p>STEP 01</p><h1>Signup queue</h1></div><span>{event.participants.length}</span></div>
-          <form onSubmit={addParticipant} className="signup-form"><label htmlFor="participant-name">Participant name or nickname</label><div><input id="participant-name" name="name" required autoComplete="off" placeholder={scoringComplete ? "Scoring is complete" : "Enter name…"} disabled={scoringComplete || saving} /><button type="submit" aria-label="Add participant" disabled={scoringComplete || saving}>+</button></div><small>{scoringComplete ? "Signups closed" : "$10 entry"}</small></form>
+          <form onSubmit={addParticipant} className="signup-form"><div className="signup-fields-row"><div className="signup-field"><label htmlFor="participant-name">Player name</label><input id="participant-name" name="name" required autoComplete="name" placeholder={scoringComplete ? "Scoring complete" : "Display name…"} disabled={scoringComplete || saving} /></div><div className="signup-field"><label htmlFor="participant-email">Email address</label><div className="signup-submit-row"><input id="participant-email" name="email" type="email" required autoComplete="email" placeholder={scoringComplete ? "Scoring complete" : "player@example.com"} disabled={scoringComplete || saving} /><button type="submit" aria-label="Add paid round" disabled={scoringComplete || saving}>+</button></div></div></div></form>
           <div className="queue-tools">
             <label><span>Search players</span><input type="search" value={queueSearch} onChange={(event) => setQueueSearch(event.target.value)} placeholder="Search by name…" /></label>
-            <label><span>Show players</span><select value={queueFilter} onChange={(event) => setQueueFilter(event.target.value as typeof queueFilter)}><option value="active">Active rounds</option><option value="all">All players</option><option value="finished">Finished rounds</option></select></label>
-            <label><span>Sort queue</span><select value={queueSort} onChange={(event) => setQueueSort(event.target.value as typeof queueSort)}><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="name">Name A–Z</option><option value="score">Score high–low</option></select></label>
+            <label><span>Show players</span><select value={queueFilter} onChange={(event) => setQueueFilter(event.target.value as typeof queueFilter)}><option value="all">All players</option><option value="active">Active rounds</option><option value="finished">Finished rounds</option></select></label>
           </div>
+          {queueFocused && selected && <button type="button" className="queue-show-all" onClick={() => setQueueFocused(false)}>← Show all players</button>}
           <div className="queue-list">
             {visibleParticipants.map((person) => {
               const count = person.throws.filter(Boolean).length;
-              return <button type="button" className={`queue-person ${selectedId === person.id ? "selected" : ""}`} key={person.id} onClick={() => setSelectedId(person.id)}><span className="queue-number">{String(signupNumberById.get(person.id) || 0).padStart(2, "0")}</span><span className="queue-name"><strong>{person.name}</strong><small>{count === 10 ? `${totalPoints(person)} points · Finished${person.completedAt ? ` · ${new Date(person.completedAt).toLocaleString()}` : ""}` : count ? `${count}/10 throws recorded` : "Waiting to throw"}</small></span><b>{count === 10 ? "✓" : "→"}</b></button>;
+              const paidRound = roundNumber(person, event.participants);
+              return <button type="button" className={`queue-person ${selectedId === person.id ? "selected" : ""}`} key={person.id} onClick={() => { setSelectedId(person.id); setQueueFocused(true); setEditingScores(false); }}><span className="queue-number">{String(signupNumberById.get(person.id) || 0).padStart(2, "0")}</span><span className="queue-name"><strong>{person.name} · Round {paidRound}</strong><small>{person.email}</small><small>{count === THROWS_PER_ROUND ? `${totalPoints(person)} points · Finished${person.completedAt ? ` · ${new Date(person.completedAt).toLocaleString()}` : ""}` : count ? `${count}/${THROWS_PER_ROUND} throws recorded` : "Waiting to throw"}</small></span><b>{count === THROWS_PER_ROUND ? "✓" : "→"}</b></button>;
             })}
             {event.participants.length === 0 && <div className="queue-empty"><span>◎</span><p>New participants will line up here.</p></div>}
-            {event.participants.length > 0 && visibleParticipants.length === 0 && <div className="queue-empty"><span>⌕</span><p>{queueSearch ? `No players match “${queueSearch}”.` : queueFilter === "active" ? "No active rounds. Choose All players or Finished rounds to review previous results." : queueFilter === "finished" ? "No finished rounds yet." : "No players to display."}</p></div>}
+            {event.participants.length > 0 && visibleParticipants.length === 0 && <div className="queue-empty"><span>⌕</span><p>{queueSearch ? `No players match “${queueSearch}”.` : queueFilter === "active" ? "No active rounds." : queueFilter === "finished" ? "No finished rounds yet." : "No players to display."}</p></div>}
           </div>
         </aside>
 
         <section className="throw-panel">
           <div className="panel-title throw-title"><div><p>STEP 02</p><h1>{selected ? selected.name : "Select a participant"}</h1></div>{selected && <div className="running-score"><small>RUNNING SCORE</small><strong>{totalPoints(selected)}<i>PTS</i></strong></div>}</div>
           {!selected ? <div className="select-prompt"><span>←</span><h2>Choose a name from the queue</h2><p>You can keep adding signups while another participant throws.</p></div> : <>
-            <div className="throw-progress"><div><span>THROW</span><strong>{Math.min(throwCount + 1, 10)} <i>/ 10</i></strong></div><div className="progress-track"><i style={{ width: `${throwCount * 10}%` }} /></div><button type="button" onClick={undoLast} disabled={throwCount === 0 || saving || scoringComplete}>Undo last</button></div>
-            <div className="distance-picker"><p>1. Choose basket distance</p><div>{DISTANCES.map((feet) => <button type="button" className={distance === feet ? "active" : ""} onClick={() => setDistance(feet)} disabled={saving || scoringComplete} key={feet}><strong>{feet}<small>FT</small></strong><span>{POINTS[feet]} Points</span></button>)}</div></div>
-            <div className="outcome-picker" aria-busy={saving}><p aria-live="polite">{scoringComplete ? "Scoring is complete" : saving ? "Saving…" : "2. Record result"}</p><div><button type="button" className="miss-button" onClick={() => recordThrow("Miss")} disabled={throwCount === 10 || saving || scoringComplete}><span>×</span><strong>Miss</strong><small>0 points</small></button><button type="button" className="circle-button" onClick={() => recordThrow("Circle")} disabled={throwCount === 10 || saving || scoringComplete}><span>●</span><strong>Inside circle</strong><small>+{pointsForOutcome(distance, "Circle")} points</small></button><button type="button" className="ace-button" onClick={() => recordThrow("Ace")} disabled={throwCount === 10 || saving || scoringComplete}><span>★</span><strong>Ace!</strong><small>+{pointsForOutcome(distance, "Ace")} points</small></button></div></div>
-            <div className="throw-strip">{selected.throws.map((item, index) => <div className={item ? item.outcome.toLowerCase() : ""} key={index}><small>{index + 1}</small>{item ? <><strong>{item.points}</strong><span>{item.distance}ft · {item.outcome}</span></> : <><strong>—</strong><span>Not thrown</span></>}</div>)}</div>
-            {throwCount === 10 && <div className="complete-banner"><span>✓</span><div><strong>Round complete — {totalPoints(selected)} points</strong><p>Select the next participant from the signup queue.</p></div></div>}
+            <div className="throw-progress"><div><span>THROW</span><strong>{currentThrowNumber} <i>/ {THROWS_PER_ROUND}</i></strong></div><div className="progress-track"><i style={{ width: `${(throwCount / THROWS_PER_ROUND) * 100}%` }} /></div><button type="button" onClick={throwCount === THROWS_PER_ROUND ? () => setEditingScores((current) => !current) : undoLast} disabled={throwCount === 0 || saving || scoringComplete}>{throwCount === THROWS_PER_ROUND ? editingScores ? "Cancel editing" : "Edit Scores" : "Undo last"}</button></div>
+            {throwCount === THROWS_PER_ROUND && <div className="complete-banner"><span>✓</span><div><strong>Round {roundNumber(selected, event.participants)} complete — {totalPoints(selected)} points</strong><p>This score remains in the event record. Only this player’s highest-scoring round appears on the leaderboard.</p></div>{!scoringComplete && <button type="button" onClick={startAnotherRound} disabled={saving}>{saving ? "Starting…" : "Start another round"}</button>}</div>}
+            {throwCount < THROWS_PER_ROUND && <><div className="distance-picker"><p>1. Choose basket distance</p><div>{DISTANCES.map((feet) => <button type="button" className={distance === feet ? "active" : ""} onClick={() => setDistance(feet)} disabled={saving || scoringComplete} key={feet}><strong>{feet}<small>ft</small></strong><span>{POINTS[feet]} Points</span></button>)}</div></div>
+            <div className="outcome-picker" aria-busy={saving}><p aria-live="polite">{scoringComplete ? "Scoring is complete" : saving ? "Saving…" : "2. Record result"}</p><div><button type="button" className="miss-button" onClick={() => recordThrow("Miss")} disabled={saving || scoringComplete}><span>×</span><strong>Miss</strong><small>0 points</small></button><button type="button" className="circle-button" onClick={() => recordThrow("Circle")} disabled={saving || scoringComplete}><span>●</span><strong>Inside circle</strong><small>+{pointsForOutcome(distance, "Circle")} points</small></button><button type="button" className="ace-button" onClick={() => recordThrow("Ace")} disabled={saving || scoringComplete}><span>★</span><strong>Ace!</strong><small>+{pointsForOutcome(distance, "Ace")} points</small></button></div></div></>}
+            <div className={`throw-strip ${editingScores ? "editing" : ""}`}>{selected.throws.map((item, index) => <div className={item ? item.outcome.toLowerCase() : ""} key={index}><small>{index + 1}</small>{item ? <>{editingScores && <button type="button" className="throw-delete" onClick={() => deleteThrow(index)} disabled={saving} aria-label={`Delete throw ${index + 1}`}>×</button>}<strong>{item.points}</strong><span>{item.distance}ft · {item.outcome}</span></> : <><strong>—</strong><span>Not thrown</span></>}</div>)}</div>
           </>}
         </section>
       </section>
       <footer className="event-footer">
         <div className="event-footer-copy"><small>END OF EVENT TOOLS</small><span>{scoringComplete ? "The event is finalized. Download another copy or reset when ready." : "Finalize the leaderboard and download its CSV backup."}</span></div>
-        <div className="event-footer-actions"><button type="button" className="export-trigger" onClick={completeScoring} disabled={saving || (!scoringComplete && !hasScores)}>{saving ? "Completing…" : scoringComplete ? "Download Final CSV ↓" : "Complete Scoring"}</button><button type="button" className="reset-trigger" onClick={() => setResetOpen(true)}>Reset event</button></div>
+        <div className="event-footer-actions"><button type="button" className="export-trigger" onClick={completeScoring} disabled={saving || (!scoringComplete && !hasScores)}>{saving ? "Completing…" : scoringComplete ? "Download Final CSV ↓" : "End Event"}</button><button type="button" className="reset-trigger" onClick={() => setResetOpen(true)}>Reset event</button></div>
       </footer>
       {resetOpen && <div className="reset-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setResetOpen(false); }}>
         <section className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-title">

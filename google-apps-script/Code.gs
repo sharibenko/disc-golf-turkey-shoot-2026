@@ -80,25 +80,25 @@ function writeState_(event) {
     [[event.revision, event.status, event.completedAt || "", new Date()]]);
 
   const participants = event.participants.map((person) => [
-    person.id, person.name, person.joinedAt, person.completedAt || "",
+    person.id, person.name, person.email, person.joinedAt, person.completedAt || "",
     person.throws.filter(Boolean).length,
     person.throws.reduce((sum, item) => sum + (item ? item.points : 0), 0),
   ]);
   writeTable_(spreadsheet, SHEETS.participants,
-    ["Participant ID", "Name", "Signup time", "Completion time", "Throws recorded", "Total points"],
+    ["Round ID", "Name", "Email", "Signup time", "Completion time", "Throws recorded", "Total points"],
     participants);
 
   const throws = [];
   event.participants.forEach((person) => {
     person.throws.forEach((item, index) => {
       if (item) throws.push([
-        person.id, person.name, index + 1, item.distance, item.outcome,
+        person.id, person.name, person.email, index + 1, item.distance, item.outcome,
         item.points,
       ]);
     });
   });
   writeTable_(spreadsheet, SHEETS.throws,
-    ["Participant ID", "Participant", "Throw", "Distance (ft)", "Outcome", "Points"],
+    ["Round ID", "Player", "Email", "Throw", "Distance (ft)", "Outcome", "Points"],
     throws);
 }
 
@@ -118,9 +118,10 @@ function sanitizeEvent_(input) {
   const participants = Array.isArray(input.participants) ? input.participants.map((person) => ({
     id: String(person.id || ""),
     name: String(person.name || "").slice(0, 100),
+    email: String(person.email || "").trim().toLowerCase().slice(0, 254),
     joinedAt: String(person.joinedAt || ""),
     completedAt: person.completedAt ? String(person.completedAt) : null,
-    throws: Array.from({ length: 10 }, (_, index) => {
+    throws: Array.from({ length: 6 }, (_, index) => {
       const item = Array.isArray(person.throws) ? person.throws[index] : null;
       if (!item || distances.indexOf(Number(item.distance)) < 0 || outcomes.indexOf(item.outcome) < 0) return null;
       return {
@@ -129,7 +130,7 @@ function sanitizeEvent_(input) {
         points: item.outcome === "Miss" ? 0 : pointsByDistance[Number(item.distance)] * (item.outcome === "Ace" ? 2 : 1),
       };
     }),
-  })).filter((person) => person.id && person.name) : [];
+  })).filter((person) => person.id && person.name && person.email) : [];
 
   return {
     participants,

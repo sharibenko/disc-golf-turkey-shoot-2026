@@ -1,4 +1,4 @@
-import { EMPTY_EVENT, type EventState } from "./live-store";
+import { EMPTY_EVENT, normalizeEmail, THROWS_PER_ROUND, type EventState, type Participant } from "./live-store";
 
 const API_URL = process.env.NEXT_PUBLIC_SHEETS_API_URL?.trim();
 
@@ -25,7 +25,14 @@ function normalizeEvent(value: unknown): EventState {
   }
   const status = event.status === "complete" ? "complete" : "live";
   return {
-    participants: event.participants,
+    participants: event.participants.map((value) => {
+      const participant = value as Participant;
+      return {
+        ...participant,
+        email: normalizeEmail(participant.email),
+        throws: Array.from({ length: THROWS_PER_ROUND }, (_, index) => participant.throws?.[index] || null),
+      };
+    }),
     revision: Number(event.revision) || 0,
     status,
     completedAt: status === "complete" && event.completedAt ? String(event.completedAt) : null,
