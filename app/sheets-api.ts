@@ -23,7 +23,13 @@ function normalizeEvent(value: unknown): EventState {
   if (!event || !Array.isArray(event.participants)) {
     return EMPTY_EVENT;
   }
-  return { participants: event.participants, revision: Number(event.revision) || 0 } as EventState;
+  const status = event.status === "complete" ? "complete" : "live";
+  return {
+    participants: event.participants,
+    revision: Number(event.revision) || 0,
+    status,
+    completedAt: status === "complete" && event.completedAt ? String(event.completedAt) : null,
+  };
 }
 
 export async function fetchEvent(signal?: AbortSignal): Promise<EventState> {

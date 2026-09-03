@@ -20,3 +20,19 @@
   .division article>strong{grid-area:name;min-width:0}
   .division article>b{grid-area:score;align-self:center;min-width:64px}
 }
+@media(min-width:900px){
+  .division-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:start;gap:18px}
+  .division-title{min-height:132px;align-items:flex-start;flex-direction:column;justify-content:flex-start;gap:14px;padding:18px}
+  .division-title>b{font-size:11px;letter-spacing:.1em}
+  .division .leader-head{grid-template-columns:1fr auto;gap:8px;padding-left:14px;padding-right:14px}
+  .division .leader-head span:nth-child(2),.division .leader-head span:nth-child(3),.division .leader-head span:nth-child(4),.division article>span:nth-child(3),.division article>span:nth-child(4){display:none}
+  .division article{grid-template-columns:34px minmax(0,1fr);grid-template-areas:"place name" "place score";gap:8px;padding-left:14px;padding-right:14px}
+  .division article .place{grid-area:place;align-self:start}
+  .division article>strong{min-width:0;font-size:19px}
+  .division article>strong em{font-size:11px}
+  .division article>strong{grid-area:name}
+  .division article>b{grid-area:score;text-align:left;font-size:22px;white-space:nowrap}
+  .division article>b small{font-size:11px}
+  .division-beginner{margin-bottom:0}
+  .waiting-count{grid-column:1/-1}
+}

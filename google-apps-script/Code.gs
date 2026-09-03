@@ -36,6 +36,10 @@ function doPost(request) {
     }
 
     const next = sanitizeEvent_(body.event);
+    const isReset = next.status === "live" && next.participants.length === 0;
+    if (current.status === "complete" && !isReset) {
+      return json_({ ok: false, error: "Scoring is complete. Reset the event before recording new results.", code: "EVENT_COMPLETE", event: current });
+    }
     next.revision = current.revision + 1;
     writeState_(next);
     return json_({ ok: true, event: next });
@@ -51,13 +55,13 @@ function setupTurkeyShoot() {
   Object.values(SHEETS).forEach((name) => {
     if (!spreadsheet.getSheetByName(name)) spreadsheet.insertSheet(name);
   });
-  writeState_({ participants: [], revision: 0 });
+  writeState_({ participants: [], revision: 0, status: "live", completedAt: null });
 }
 
 function readState_() {
   const sheet = getOrCreateSheet_(SHEETS.state);
   const raw = sheet.getRange("A2").getValue();
-  if (!raw) return { participants: [], revision: 0 };
+  if (!raw) return { participants: [], revision: 0, status: "live", completedAt: null };
   return sanitizeEvent_(JSON.parse(String(raw)));
 }
 
@@ -72,8 +76,8 @@ function writeState_(event) {
   stateSheet.setFrozenRows(1);
 
   writeTable_(spreadsheet, SHEETS.event,
-    ["Revision", "Updated at"],
-    [[event.revision, new Date()]]);
+    ["Revision", "Status", "Scoring completed at", "Updated at"],
+    [[event.revision, event.status, event.completedAt || "", new Date()]]);
 
   const participants = event.participants.map((person) => [
     person.id, person.name, person.joinedAt, person.completedAt || "",
@@ -130,6 +134,8 @@ function sanitizeEvent_(input) {
   return {
     participants,
     revision: Math.max(0, Number(input.revision) || 0),
+    status: input.status === "complete" ? "complete" : "live",
+    completedAt: input.status === "complete" && input.completedAt ? String(input.completedAt) : null,
   };
 }
 

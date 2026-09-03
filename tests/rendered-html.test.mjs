@@ -8,12 +8,14 @@ test("exports the scoring desk for static hosting", async () => {
   assert.match(html, /Turkey Target Challenge 2026/);
   assert.match(html, /Live scoring desk/);
   assert.match(html, /Signup queue/);
+  assert.match(html, /Complete Scoring/);
 });
 
 test("exports the live leaderboard route", async () => {
   const html = await readFile(new URL("../out/display/index.html", import.meta.url), "utf8");
   assert.match(html, /Live scoring/);
-  assert.match(html, /Leaderboard/);
+  assert.doesNotMatch(html, /<h1>Leaderboard/);
+  assert.match(html, /Circle hit scoring/);
   assert.doesNotMatch(html, /ROLLING ACE POT/);
 });
 
@@ -44,6 +46,8 @@ test("ships the Google Sheets client instead of browser event storage", async ()
   assert.match(page, /participants: \[participant, \.\.\.event\.participants\]/);
   assert.match(page, /signupNumberById/);
   assert.match(page, /completedAt/);
+  assert.match(page, /status: "complete"/);
+  assert.match(display, /isFinal \? "Winner" : "Current winner"/);
   assert.match(api, /NEXT_PUBLIC_SHEETS_API_URL/);
   assert.match(api, /expectedRevision/);
 });
