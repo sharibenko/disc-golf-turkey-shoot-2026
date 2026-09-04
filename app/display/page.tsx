@@ -9,7 +9,8 @@ type DivisionName = "Top Turkeys" | "Middle of the Flock" | "Wild Gobblers";
 function Division({ name, people, startRank, isFinal }: { name: DivisionName; people: Participant[]; startRank: number; isFinal: boolean }) {
   const winnerScore = people.length ? totalPoints(people[0]) : null;
   const divisionPosition = name === "Top Turkeys" ? "Upper" : name === "Middle of the Flock" ? "Middle" : "Lower";
-  return <section className={`division division-${name.toLowerCase()}`}>
+  const divisionClass = name === "Top Turkeys" ? "top-turkeys" : name === "Middle of the Flock" ? "middle-flock" : "wild-gobblers";
+  return <section className={`division division-${divisionClass}`}>
     <header className="division-title">
       <div><span>{name === "Top Turkeys" ? "T" : name === "Middle of the Flock" ? "M" : "W"}</span><div><p>{name} division</p><small>{people.length} {people.length === 1 ? "player" : "players"}</small></div></div>
       {people.length > 0 && <b>{divisionPosition} ⅓ by {isFinal ? "final" : "live"} score</b>}
