@@ -1,5 +1,16 @@
 .division-note{display:block;max-width:560px;margin-top:18px;color:#8fa098;font-size:16px;line-height:1.6}.division-list{display:flex;flex-direction:column;gap:28px;margin-top:35px}.division{border:1px solid #3a4a43;border-radius:7px;overflow:hidden;background:#182a22}.division-title{display:flex;align-items:center;justify-content:space-between;padding:20px 22px;border-bottom:1px solid #3a4a43}.division-title>div{display:flex;align-items:center;gap:13px}.division-title>div>span{width:38px;height:38px;display:grid;place-items:center;border-radius:50%;font:20px Arial,Helvetica,sans-serif;background:#30433b;color:#f5f0e4}.division-title p{margin:0 0 4px;font:22px Arial,Helvetica,sans-serif;text-transform:capitalize}.division-title small{font-size:16px;text-transform:uppercase;letter-spacing:.12em;color:#82938b}.division-title>b{font-size:16px;text-transform:uppercase;letter-spacing:.14em;color:#879890}.division-advanced .division-title>div>span{background:var(--gold);color:#2b2518}.division-intermediate .division-title>div>span{background:var(--orange);color:white}.division-beginner .division-title>div>span{background:#779383;color:white}.division .leader-head,.division article{display:grid;grid-template-columns:90px 1.5fr .65fr 1fr .5fr;align-items:center;gap:18px}.division .leader-head{padding:14px 22px;font-size:16px;letter-spacing:.18em;color:#71827a;background:#14251e}.division article{padding:21px 22px;border-top:1px solid #34473f}.division article .place{font:24px Arial,Helvetica,sans-serif;color:#687b72}.division article>strong{font:24px Arial,Helvetica,sans-serif;display:flex;align-items:center;gap:12px}.division article>strong em{display:inline-flex;align-items:center;justify-content:center;text-align:center;font:800 16px/1 Arial,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#201c13;background:var(--gold);border-radius:99px;padding:6px 8px}.division article>span{font-size:16px;color:#a5b1ab}.division article>b{text-align:right;font:29px Arial,Helvetica,sans-serif;color:var(--gold)}.division article>b small{font:16px Arial}.division-winner{background:#1e332a}.division-empty{padding:34px 22px;color:#74857d;font:14px Arial,Helvetica,sans-serif}.waiting-count{text-align:center;color:#7f9088;font-size:16px;letter-spacing:.08em}.division-beginner{margin-bottom:8px}@media(max-width:900px){.division .leader-head,.division article{grid-template-columns:60px 1.3fr .7fr .7fr}.division .leader-head span:nth-child(4),.division article>span:nth-child(4){display:none}}@media(max-width:620px){.division-list{gap:18px}.division-title{padding:16px}.division-title>b{display:none}.division .leader-head,.division article{grid-template-columns:42px 1fr 60px;padding-left:10px;padding-right:10px;gap:8px}.division .leader-head span:nth-child(3),.division article>span:nth-child(3){display:none}.division article>strong{font-size:18px;display:block}.division article>strong em{display:inline-flex;width:max-content;margin-top:5px}.division article>b{font-size:21px}.division-note{max-width:320px}}
 .division-top-turkeys .division-title p{color:var(--gold)}
+.division-tabs{display:none}
+@media(max-width:620px){
+  .division-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .division-tabs button{min-height:48px;padding:10px 6px;border:1px solid #52665b;border-radius:6px;background:#182a22;color:#f5f0e4;font-size:14px;font-weight:700;line-height:1.25}
+  .division-tabs button[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:#201c13}
+  .division-tabs button[aria-pressed="true"][aria-controls="division-middle-flock"]{background:var(--orange);border-color:var(--orange)}
+  .division-tabs button[aria-pressed="true"][aria-controls="division-wild-gobblers"]{background:#1f9d8a;border-color:#1f9d8a}
+  .division-tabs button:focus-visible{outline:2px solid #fff3c0;outline-offset:3px}
+  .division-list>.division[data-selected="false"]{display:none}
+}
+.division-icon{display:block;width:45px;height:45px;flex-shrink:0;object-fit:contain}
 .division-middle-flock .division-title p{color:var(--orange)}
 .division-wild-gobblers .division-title p{color:#1f9d8a}
 .division-top-turkeys article>b{color:var(--gold)}
@@ -37,4 +48,11 @@
   .division article>b small{font-size:11px}
   .division-wild-gobblers{margin-bottom:0}
   .waiting-count{grid-column:1/-1}
+  .division-title p{font-size:24.2px}
+  .division-title small,.division .leader-head,.division article>span,.waiting-count{font-size:17.6px}
+  .division-title>b,.division article>strong em,.division article>b small{font-size:12.1px}
+  .division article .place{font-size:26.4px}
+  .division article>strong{font-size:20.9px}
+  .division article>b{font-size:24.2px}
+  .division-empty{font-size:15.4px}
 }
