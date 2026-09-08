@@ -56,3 +56,15 @@
   .division article>b{font-size:24.2px}
   .division-empty{font-size:15.4px}
 }
+.division .division-winner>strong .podium-ribbon{padding:0;background:transparent;border-radius:0;width:64px;max-width:100%;margin-top:8px}
+.podium-ribbon img{display:block;width:100%;height:auto}
+@media(max-width:620px){
+  .division article{grid-template-columns:34px minmax(0,1fr) 64px;grid-template-areas:"place name ribbon" "place score ribbon";gap:6px 10px}
+  .division article .place{grid-area:place;align-self:start}
+  .division article>strong{display:contents}
+  .division article .player-name{grid-area:name;min-width:0;overflow-wrap:anywhere;font:18px Arial,Helvetica,sans-serif}
+  .division article>b{grid-area:score;text-align:left;align-self:start;min-width:0}
+  .division .division-winner>strong .podium-ribbon{grid-area:ribbon;align-self:center;margin:0}
+  .division .leader-head{grid-template-columns:1fr}
+  .division .leader-head>span:last-child{display:none}
+}

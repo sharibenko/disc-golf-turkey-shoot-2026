@@ -47,6 +47,23 @@ Useful commands:
 - `npm run build`: create the static site in `out/`
 - `npm test`: build and verify both exported routes and the Sheets client
 
+## Preview the event demo
+
+Open `/demo/` on the local site to see a fictional event using the same design as `/display/`.
+
+1. The demo opens with 11 example players (six MPO and five FPO pros listed by the PDGA), each with one scored throw, so every division is populated immediately.
+2. Every two seconds, another throw is recorded and the leaderboard recalculates rankings and divisions using the real scoring rules.
+3. After all six throws per player, final results stay visible for 12 seconds. A fresh simulated event then begins automatically.
+4. Use **Pause / Resume** to hold a moment, or **Restart** to return to the first event. Mobile division buttons work as on the real leaderboard.
+
+Demo data lives only in the page's memory. It never reads or writes the Google Sheet, listens to scoring-desk updates, or persists player data. Reloading restarts the demo. The `/demo/` route is included in the static export; after deployment, share the site's URL with `/demo/` appended (including the repository prefix for GitHub Pages).
+
+Player names were selected from https://www.pdga.com/world-rankings and https://www.pdga.com/news/18-holes-go-0. Their demo scores are invented and do not imply event registration.
+
+The sequence and timing are in `app/demo/simulation.ts`. Both routes use `app/leaderboard-view.tsx` for consistent styling.
+
+Both leaderboards award a maximum of three podium badges per division: 1st, 2nd, and 3rd place. Equal scores retain the existing earlier-signup ordering, so a tie does not create extra winners. Live badges say "Current"; final badges show the placement alone.
+
 ## 3. Publish with GitHub Pages
 
 1. Push this project to a GitHub repository whose default branch is `main`.

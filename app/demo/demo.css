@@ -1,0 +1,9 @@
+.demo-banner{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:18px 0;padding:16px;border:1px solid #52665b;border-radius:6px;background:#1e332a;font-size:14px}
+.demo-banner strong{color:var(--gold)}
+.demo-banner p{margin:4px 0 0;color:#b7c4be}
+.demo-controls{display:flex;justify-content:center;gap:8px;margin-top:28px;flex-shrink:0}
+.demo-controls button{min-height:44px;padding:8px 14px;border:1px solid #8fa098;border-radius:5px;color:#f5f0e4;background:#182a22;font-weight:700}
+.demo-controls button:hover{background:#30433b}
+.demo-controls button:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+@media(max-width:620px){.demo-banner{flex-direction:column;align-items:flex-start}.demo-controls{width:100%}.demo-controls button{flex:1}}
+@media(min-width:900px){.demo-banner{font-size:15.4px}}
