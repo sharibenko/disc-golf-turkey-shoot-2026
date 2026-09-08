@@ -13,7 +13,7 @@ function Division({ name, people, startRank, isFinal, selected }: { name: Divisi
   const divisionClass = name === "Top Turkeys" ? "top-turkeys" : name === "Middle of the Flock" ? "middle-flock" : "wild-gobblers";
   return <section id={`division-${divisionClass}`} aria-label={name} data-selected={selected} className={`division division-${divisionClass}`}>
     <header className="division-title">
-      <div><Image className="division-icon" src={`../${divisionClass}-icon.svg`} alt="" width={45} height={45} unoptimized /><div><p>{name} division</p><small>{people.length} {people.length === 1 ? "player" : "players"}</small></div></div>
+      <div><Image className="division-icon" src={`../${divisionClass}-icon.svg`} alt="" width={52} height={52} unoptimized /><div><p>{name} division</p><small className="division-player-count">{people.length} {people.length === 1 ? "player" : "players"}{people.length > 0 && <span className="mobile-division-range"> · {divisionPosition === "Upper" ? "Top" : divisionPosition === "Lower" ? "Bottom" : "Middle"} ⅓ of scores</span>}</small></div></div>
       {people.length > 0 && <b>{divisionPosition} ⅓ by {isFinal ? "final" : "live"} score</b>}
     </header>
     <div className="leader-head"><span>PLACE</span><span aria-hidden="true" /><span>THROWS</span><span>ACES</span><span>SCORE</span></div>
@@ -37,8 +37,8 @@ export function LeaderboardView({ event, syncError = null, demoControls, footer 
   const waiting = event.participants.filter((person) => !person.throws.some(Boolean)).length;
   const isFinal = event.status === "complete";
   return <main className="leaderboard-shell">
-    <header className="leaderboard-header"><div className="event-brand leaderboard-brand"><Image className="leaderboard-logo" src="../ttc-logo-leaderboard.svg" alt="Turkey Target Challenge 2026" width={1691} height={183} unoptimized priority /></div><div className={`live-badge ${isFinal ? "final" : ""}`}><i /> {demoControls ? (isFinal ? "Demo results" : "Demo scoring") : (isFinal ? "Final leaderboard" : "Live scoring")}</div></header>
     {demoControls}
+    <header className="leaderboard-header"><div className="event-brand leaderboard-brand"><Image className="leaderboard-logo" src="../ttc-logo-leaderboard.svg" alt="Turkey Target Challenge 2026" width={1691} height={183} unoptimized priority /></div><div className={`live-badge ${isFinal ? "final" : ""}`}><i /> {demoControls ? (isFinal ? "Demo results" : "Demo scoring") : (isFinal ? "Final leaderboard" : "Live scoring")}</div></header>
     <section className="score-reference leaderboard-score-reference" aria-label="Circle hit scoring">
       <span>Circle hit scoring</span>
       {DISTANCES.map((feet) => <div key={feet}><strong>{feet}<small>FT</small></strong><b>{POINTS[feet]} PTS</b><small className="ace-reference"><span className="ace-label">Ace</span>{" "}<span>{POINTS[feet] * 2} PTS</span></small></div>)}
