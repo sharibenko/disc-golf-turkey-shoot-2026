@@ -92,9 +92,11 @@ test("each division awards at most three distinct podium places, including tied 
       const divisions = [...html.matchAll(/<section id="division-[\s\S]*?<\/section>/g)];
       assert.equal(divisions.length, 3);
       for (const [divisionIndex, [section]] of divisions.entries()) {
+        const places = [...section.matchAll(/<span class="place">(\d+)<\/span>/g)].map((match) => match[1]);
+        assert.deepEqual(places, Array.from({ length: count / 3 }, (_, index) => String(index + 1).padStart(2, "0")).slice(3));
         const badges = [...section.matchAll(/<em class="podium-ribbon" aria-label="([^"]+)"/g)].map((match) => match[1]);
         assert.deepEqual(badges, ["1st", "2nd", "3rd"].slice(0, count / 3).map((place) => `${status === "live" ? "Current " : ""}${place} place`));
-        assert.match(section, new RegExp(`Player ${divisionIndex * count / 3}</span><em`));
+        assert.match(section, new RegExp(`Player ${divisionIndex * count / 3}</span>`));
       }
     }
   }

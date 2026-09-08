@@ -10,7 +10,7 @@
   .division-tabs button:focus-visible{outline:2px solid #fff3c0;outline-offset:3px}
   .division-list>.division[data-selected="false"]{display:none}
 }
-.division-icon{display:block;width:52px;height:52px;flex-shrink:0;object-fit:contain}
+.division-icon{display:block;width:64px;height:64px;flex-shrink:0;object-fit:contain}
 .division-middle-flock .division-title p{color:var(--orange)}
 .division-wild-gobblers .division-title p{color:#1f9d8a}
 .division-top-turkeys article>b{color:var(--gold)}
@@ -94,3 +94,49 @@
   .leaderboard-score-reference>p{display:block;grid-column:1/-1;margin:8px 0 0;text-align:center;font-size:14px;font-weight:800;letter-spacing:0;text-transform:uppercase}
 }
 @media(max-width:620px){.division-list{margin-top:24px}}
+.mobile-entry-price{display:none}
+@media(max-width:620px){.mobile-entry-price{display:inline}}
+@media(min-width:621px) and (max-width:900px){
+  .leaderboard-score-reference{grid-template-columns:1.2fr repeat(4,minmax(0,1fr)) 1.2fr;gap:10px}
+  .leaderboard-score-reference>span,.leaderboard-score-reference>p{display:block;font-size:14px;letter-spacing:.04em}
+}
+.mobile-throws-label{display:none}
+@media(max-width:620px){
+  .division article{grid-template-areas:"place name ribbon" "place score ribbon" "place throws ribbon"}
+  .division article>.player-throws:nth-child(3){display:block;grid-area:throws;font-size:14px}
+  .mobile-throws-label{display:inline}
+}
+/* Keep throw progress directly below points at every viewport size. */
+.mobile-throws-label{display:inline}
+.division article>.player-throws:nth-child(3){display:block;grid-area:throws;font-size:14px}
+.division .leader-head>span:nth-child(3){display:none}
+@media(min-width:621px) and (max-width:899px){
+  .division article,.division .leader-head{grid-template-columns:60px minmax(0,1.3fr) minmax(90px,.7fr) 64px}
+  .division article{grid-template-areas:"place name score ribbon" "place name throws ribbon";row-gap:6px}
+}
+@media(min-width:900px){
+  .division article{grid-template-areas:"place name ribbon" "place score ribbon" "place throws ribbon"}
+  .division article>.player-throws:nth-child(3){font-size:15.4px}
+}
+/* Podium ribbons replace the first three numbers in the left place column. */
+.division article{grid-template-columns:64px minmax(0,1fr);grid-template-areas:"place name" "place score" "place throws"}
+.division article .place{align-self:center;text-align:center}
+.division article .place .podium-ribbon{display:block;width:56px;margin:0 auto;padding:0;background:transparent}
+@media(min-width:621px) and (max-width:899px){
+  .division article{grid-template-columns:64px minmax(0,1.3fr) minmax(90px,.7fr);grid-template-areas:"place name score" "place name throws"}
+}
+@media(max-width:620px){
+  .leaderboard-score-reference>p{grid-row:1;margin:0;padding:0 0 12px;border-bottom:1px solid #3a4a43}
+}
+@media(max-width:620px){.leaderboard-score-reference>p{font-size:12px}}
+@media(max-width:372px){.leaderboard-score-reference>p{font-size:11px}}
+/* Scale division titles to the available header width. */
+.division-title>div{width:100%;min-width:0}
+.division-title>div>div{min-width:0;flex:1}
+.division-title p{font-size:22px;white-space:normal;letter-spacing:-.02em}
+@media(max-width:372px){.division-title>div>div{width:100%}}
+
+@media(max-width:620px){.division-title p{font-size:22px}}
+@media(min-width:900px){.division-title p{font-size:24.2px}}
+.division-prize-note{margin:18px 0 0;text-align:center;color:#fff;font-size:16px;line-height:1.5}
+@media(max-width:620px){.division-prize-note{font-size:14px}}
