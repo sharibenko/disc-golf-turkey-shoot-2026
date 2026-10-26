@@ -41,7 +41,7 @@ export function LeaderboardView({ event, syncError = null, demoControls, footer 
     <section className="score-reference leaderboard-score-reference" aria-label="Circle hit scoring">
       <span>$10 for 6 Throws</span>
       {DISTANCES.map((feet) => <div key={feet}><strong>{feet}<small>FT</small></strong><b>{POINTS[feet]} PTS</b><small className="ace-reference"><span className="ace-label">Ace</span>{" "}<span>{POINTS[feet] * 2} PTS</span></small></div>)}
-      <p><span className="mobile-entry-price">$10 for 6 Throws | </span>Inside 15ft counts</p>
+      <p><span className="mobile-entry-price">$10 for 6 Throws | </span>inside 30ft counts</p>
     </section>
     <p className="division-prize-note">Top 3 scores in each division wins a gift card for the price of a turkey.</p>
     {syncError && <small className="sync-error leaderboard-sync-error">Google Sheets connection: {syncError}</small>}
