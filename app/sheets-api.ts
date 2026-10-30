@@ -58,7 +58,18 @@ export async function saveEvent(next: EventState, pin: string): Promise<EventSta
   if (!response.ok || payload.ok === false) {
     throw new SheetsApiError(payload.error || "Could not save event data.", payload.code);
   }
-  return normalizeEvent(payload.event);
+  const persisted = normalizeEvent(payload.event);
+  const scoringChanged = next.participants.some((participant) => {
+    const saved = persisted.participants.find((person) => person.id === participant.id);
+    return participant.throws.some((item, index) => {
+      const savedThrow = saved?.throws[index];
+      return item && (!savedThrow || item.distance !== savedThrow.distance || item.outcome !== savedThrow.outcome || item.points !== savedThrow.points);
+    });
+  });
+  if (scoringChanged) {
+    throw new SheetsApiError("The Google Sheets backend is using different scoring rules. Update and redeploy the Apps Script before recording more throws.", "SCORING_RULES_MISMATCH");
+  }
+  return persisted;
 }
 
 export function apiIsConfigured() {

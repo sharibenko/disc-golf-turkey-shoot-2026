@@ -112,8 +112,8 @@ function writeTable_(spreadsheet, name, headers, rows) {
 }
 
 function sanitizeEvent_(input) {
-  const distances = [200, 250, 300, 350];
-  const pointsByDistance = { 200: 100, 250: 200, 300: 300, 350: 400 };
+  const distances = [200, 280, 350, "long-snood"];
+  const pointsByDistance = { 200: 100, 280: 200, 350: 300, "long-snood": 600 };
   const outcomes = ["Miss", "Circle", "Ace"];
   const participants = Array.isArray(input.participants) ? input.participants.map((person) => ({
     id: String(person.id || ""),
@@ -123,11 +123,12 @@ function sanitizeEvent_(input) {
     completedAt: person.completedAt ? String(person.completedAt) : null,
     throws: Array.from({ length: 6 }, (_, index) => {
       const item = Array.isArray(person.throws) ? person.throws[index] : null;
-      if (!item || distances.indexOf(Number(item.distance)) < 0 || outcomes.indexOf(item.outcome) < 0) return null;
+      const distance = item && item.distance === "long-snood" ? "long-snood" : Number(item && item.distance);
+      if (!item || distances.indexOf(distance) < 0 || outcomes.indexOf(item.outcome) < 0) return null;
       return {
-        distance: Number(item.distance),
+        distance: distance,
         outcome: item.outcome,
-        points: item.outcome === "Miss" ? 0 : pointsByDistance[Number(item.distance)] * (item.outcome === "Ace" ? 2 : 1),
+        points: item.outcome === "Miss" ? 0 : pointsByDistance[distance] * (item.outcome === "Ace" ? 2 : 1),
       };
     }),
   })).filter((person) => person.id && person.name && person.email) : [];

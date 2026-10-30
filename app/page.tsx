@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { bestRounds, CHANNEL_NAME, DISTANCES, EMPTY_EVENT, normalizeEmail, POINTS, pointsForOutcome, roundNumber, THROWS_PER_ROUND, totalPoints, type Distance, type EventState, type ThrowOutcome } from "./live-store";
+import { bestRounds, distanceLabel, CHANNEL_NAME, DISTANCES, EMPTY_EVENT, normalizeEmail, POINTS, pointsForOutcome, roundNumber, THROWS_PER_ROUND, totalPoints, type Distance, type EventState, type ThrowOutcome } from "./live-store";
 import { fetchEvent, saveEvent, SheetsApiError } from "./sheets-api";
 
 export default function TurkeyShootPage() {
@@ -13,11 +13,35 @@ export default function TurkeyShootPage() {
   const [resetError, setResetError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [queueSearch, setQueueSearch] = useState("");
   const [queueFilter, setQueueFilter] = useState<"all" | "active" | "finished">("all");
   const [queueFocused, setQueueFocused] = useState(false);
   const [editingScores, setEditingScores] = useState(false);
+  const [editingThrow, setEditingThrow] = useState<number | null>(null);
   const saveInFlight = useRef(false);
+  const pinDialog = useRef<HTMLDialogElement>(null);
+  const pinResolver = useRef<((pin: string | null) => void) | null>(null);
+  const [pinOpen, setPinOpen] = useState(false);
+
+  useEffect(() => {
+    if (pinOpen) {
+      pinDialog.current?.showModal();
+      pinDialog.current?.querySelector<HTMLInputElement>("input")?.focus();
+    }
+    else pinDialog.current?.close();
+  }, [pinOpen]);
+
+  useEffect(() => () => {
+    pinResolver.current?.(null);
+    pinResolver.current = null;
+  }, []);
+
+  function finishPin(pin: string | null) {
+    pinResolver.current?.(pin);
+    pinResolver.current = null;
+    setPinOpen(false);
+  }
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -39,11 +63,18 @@ export default function TurkeyShootPage() {
 
   async function publish(next: EventState, suppliedPin?: string) {
     if (saveInFlight.current) return null;
-    const savedPin = sessionStorage.getItem("turkey-shoot-admin-pin");
-    const pin = suppliedPin ?? savedPin ?? window.prompt("Enter the event admin PIN to save scoring changes:");
-    if (!pin) return null;
     saveInFlight.current = true;
+    const savedPin = sessionStorage.getItem("turkey-shoot-admin-pin");
+    const pin = suppliedPin ?? savedPin ?? await new Promise<string | null>((resolve) => {
+      pinResolver.current = resolve;
+      setPinOpen(true);
+    });
+    if (!pin) {
+      saveInFlight.current = false;
+      return null;
+    }
     setSaving(true);
+    setSaveError(null);
     setSyncError(null);
     setEvent(next);
     try {
@@ -58,8 +89,8 @@ export default function TurkeyShootPage() {
       if (error instanceof SheetsApiError && error.code === "UNAUTHORIZED") {
         sessionStorage.removeItem("turkey-shoot-admin-pin");
       }
-      setSyncError(error instanceof Error ? error.message : "Could not save event data.");
       await refresh();
+      setSaveError(error instanceof Error ? error.message : "Could not save event data.");
       return null;
     } finally {
       saveInFlight.current = false;
@@ -67,7 +98,7 @@ export default function TurkeyShootPage() {
     }
   }
 
-  function addParticipant(e: FormEvent<HTMLFormElement>) {
+  async function addParticipant(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (event.status === "complete") return;
     const form = e.currentTarget;
@@ -75,25 +106,31 @@ export default function TurkeyShootPage() {
     const email = normalizeEmail(String(new FormData(form).get("email") || ""));
     if (!name || !email) return;
     const participant = { id: crypto.randomUUID(), name, email, joinedAt: new Date().toISOString(), completedAt: null, throws: Array(THROWS_PER_ROUND).fill(null) };
-    publish({ ...event, participants: [participant, ...event.participants] });
+    const persisted = await publish({ ...event, participants: [participant, ...event.participants] });
+    if (!persisted) return;
     form.reset();
     if (!selectedId) setSelectedId(participant.id);
   }
 
-  function recordThrow(outcome: ThrowOutcome) {
+  async function recordThrow(outcome: ThrowOutcome) {
     if (!selectedId || event.status === "complete") return;
     const participant = event.participants.find((item) => item.id === selectedId);
     if (!participant) return;
-    const throwIndex = participant.throws.findIndex((item) => item === null);
+    if (editingScores && editingThrow === null) return;
+    const throwIndex = editingThrow ?? participant.throws.findIndex((item) => item === null);
     if (throwIndex < 0) return;
     const points = pointsForOutcome(distance, outcome);
     const participants = event.participants.map((item) => {
       if (item.id !== selectedId) return item;
       const throws = [...item.throws];
       throws[throwIndex] = { distance, outcome, points };
-      return { ...item, throws, completedAt: throws.every(Boolean) ? new Date().toISOString() : item.completedAt };
+      return { ...item, throws, completedAt: throws.every(Boolean) ? item.completedAt ?? new Date().toISOString() : item.completedAt };
     });
-    publish({ ...event, participants });
+    const persisted = await publish({ ...event, participants });
+    if (persisted && editingThrow !== null) {
+      setEditingThrow(null);
+      setEditingScores(false);
+    }
   }
 
   function undoLast() {
@@ -110,18 +147,10 @@ export default function TurkeyShootPage() {
     publish({ ...event, participants });
   }
 
-  async function deleteThrow(throwIndex: number) {
-    if (!selectedId || event.status === "complete" || !editingScores) return;
-    const participants = event.participants.map((item) => {
-      if (item.id !== selectedId) return item;
-      const throws = [...item.throws];
-      throws[throwIndex] = null;
-      return { ...item, throws, completedAt: null };
-    });
-    const persisted = await publish({ ...event, participants });
-    if (!persisted) return;
-    setEditingScores(false);
-    window.requestAnimationFrame(() => document.querySelector<HTMLElement>(".distance-picker button")?.focus());
+  function selectThrowToEdit(throwIndex: number) {
+    if (!selected || saving || !editingScores) return;
+    setEditingThrow(throwIndex);
+    setDistance(selected.throws[throwIndex]?.distance ?? 200);
   }
 
   async function startAnotherRound() {
@@ -218,7 +247,7 @@ export default function TurkeyShootPage() {
         <div className="event-brand"><div><strong>Turkey Target Challenge 2026</strong><small>Live scoring desk</small></div></div>
         <div className="header-actions"><Link href="/display" target="_blank">Open leaderboard ↗</Link></div>
       </header>
-      {syncError && <div className="sync-alert" role="alert"><strong>Google Sheets connection:</strong> {syncError}</div>}
+      {(saveError || syncError) && <div className="sync-alert" role="alert"><strong>Google Sheets connection:</strong> {saveError || syncError}</div>}
       {scoringComplete && <div className="event-complete-alert" role="status"><strong>Scoring complete</strong><span>The final leaderboard is published. Scoring controls are locked.</span></div>}
 
       <section className="scoring-workspace">
@@ -233,7 +262,7 @@ export default function TurkeyShootPage() {
             {visibleParticipants.map((person) => {
               const count = person.throws.filter(Boolean).length;
               const paidRound = roundNumber(person, event.participants);
-              return <button type="button" className={`queue-person ${selectedId === person.id ? "selected" : ""}`} key={person.id} onClick={() => { setSelectedId(person.id); setQueueFocused(true); setEditingScores(false); }}><span className="queue-number">{String(signupNumberById.get(person.id) || 0).padStart(2, "0")}</span><span className="queue-name"><strong>{person.name} · Round {paidRound}</strong><small>{person.email}</small><small>{count === THROWS_PER_ROUND ? `${totalPoints(person)} points · Finished${person.completedAt ? ` · ${new Date(person.completedAt).toLocaleString()}` : ""}` : count ? `${count}/${THROWS_PER_ROUND} throws recorded` : "Waiting to throw"}</small></span><b>{count === THROWS_PER_ROUND ? "✓" : "→"}</b></button>;
+              return <button type="button" className={`queue-person ${selectedId === person.id ? "selected" : ""}`} key={person.id} onClick={() => { setSelectedId(person.id); setQueueFocused(true); setEditingScores(false); setEditingThrow(null); }}><span className="queue-number">{String(signupNumberById.get(person.id) || 0).padStart(2, "0")}</span><span className="queue-name"><strong>{person.name} · Round {paidRound}</strong><small>{person.email}</small><small>{count === THROWS_PER_ROUND ? `${totalPoints(person)} points · Finished${person.completedAt ? ` · ${new Date(person.completedAt).toLocaleString()}` : ""}` : count ? `${count}/${THROWS_PER_ROUND} throws recorded` : "Waiting to throw"}</small></span><b>{count === THROWS_PER_ROUND ? "✓" : "→"}</b></button>;
             })}
             {event.participants.length === 0 && <div className="queue-empty"><span>◎</span><p>New participants will line up here.</p></div>}
             {event.participants.length > 0 && visibleParticipants.length === 0 && <div className="queue-empty"><span>⌕</span><p>{queueSearch ? `No players match “${queueSearch}”.` : queueFilter === "active" ? "No active rounds." : queueFilter === "finished" ? "No finished rounds yet." : "No players to display."}</p></div>}
@@ -241,13 +270,13 @@ export default function TurkeyShootPage() {
         </aside>
 
         <section className="throw-panel">
-          <div className="panel-title throw-title"><div><p>STEP 02</p><h1>{selected ? selected.name : "Select a participant"}</h1></div>{selected && <div className="running-score"><small>RUNNING SCORE</small><strong>{totalPoints(selected)}<i>PTS</i></strong></div>}</div>
+          <div className="panel-title throw-title"><button type="button" className="score-edit-pencil" aria-label={editingScores ? "Cancel editing throws" : "Edit round throws"} title="Edit round throws" disabled={!selected || saving || scoringComplete} onClick={() => { setEditingScores(!editingScores); setEditingThrow(null); }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m16 3 5 5-12 12-6 1 1-6Z"/><path d="m14 5 5 5"/></svg></button><div><p>STEP 02</p><h1>{selected ? selected.name : "Select a participant"}</h1></div>{selected && <div className="running-score"><small>RUNNING SCORE</small><strong>{totalPoints(selected)}<i>PTS</i></strong></div>}</div>
           {!selected ? <div className="select-prompt"><span>←</span><h2>Choose a name from the queue</h2><p>You can keep adding signups while another participant throws.</p></div> : <>
-            <div className="throw-progress"><div><span>THROW</span><strong>{currentThrowNumber} <i>/ {THROWS_PER_ROUND}</i></strong></div><div className="progress-track"><i style={{ width: `${(throwCount / THROWS_PER_ROUND) * 100}%` }} /></div><button type="button" onClick={throwCount === THROWS_PER_ROUND ? () => setEditingScores((current) => !current) : undoLast} disabled={throwCount === 0 || saving || scoringComplete}>{throwCount === THROWS_PER_ROUND ? editingScores ? "Cancel editing" : "Edit Scores" : "Undo last"}</button></div>
+            <div className="throw-progress"><div><span>THROW</span><strong>{currentThrowNumber} <i>/ {THROWS_PER_ROUND}</i></strong></div><div className="progress-track"><i style={{ width: `${(throwCount / THROWS_PER_ROUND) * 100}%` }} /></div><button type="button" onClick={editingScores ? () => { setEditingScores(false); setEditingThrow(null); } : undoLast} disabled={saving || scoringComplete || (!editingScores && (throwCount === 0 || throwCount === THROWS_PER_ROUND))}>{editingScores ? "Cancel editing" : "Undo last"}</button></div>
             {throwCount === THROWS_PER_ROUND && <div className="complete-banner"><span>✓</span><div><strong>Round {roundNumber(selected, event.participants)} complete — {totalPoints(selected)} points</strong><p>This score remains in the event record. Only this player’s highest-scoring round appears on the leaderboard.</p></div>{!scoringComplete && <button type="button" onClick={startAnotherRound} disabled={saving}>{saving ? "Starting…" : "Start another round"}</button>}</div>}
-            {throwCount < THROWS_PER_ROUND && <><div className="distance-picker"><p>1. Choose basket distance</p><div>{DISTANCES.map((feet) => <button type="button" className={distance === feet ? "active" : ""} onClick={() => setDistance(feet)} disabled={saving || scoringComplete} key={feet}><strong>{feet}<small>ft</small></strong><span>{POINTS[feet]} Points</span></button>)}</div></div>
+            {editingScores && <p className="throw-edit-instructions" role="status">{editingThrow === null ? "Choose a throw below to edit." : `Editing throw ${editingThrow + 1}: choose its basket and corrected result.`}</p>}{((!editingScores && throwCount < THROWS_PER_ROUND) || editingThrow !== null) && <><div className="distance-picker"><p>1. Choose basket distance</p><div>{DISTANCES.map((feet) => <button type="button" className={distance === feet ? "active" : ""} onClick={() => setDistance(feet)} disabled={saving || scoringComplete} key={feet}><strong>{feet === "long-snood" ? distanceLabel(feet) : <>{feet}<small>ft</small></>}</strong><span>{POINTS[feet]} Points</span></button>)}</div></div>
             <div className="outcome-picker" aria-busy={saving}><p aria-live="polite">{scoringComplete ? "Scoring is complete" : saving ? "Saving…" : "2. Record result"}</p><div><button type="button" className="miss-button" onClick={() => recordThrow("Miss")} disabled={saving || scoringComplete}><span>×</span><strong>Miss</strong><small>0 points</small></button><button type="button" className="circle-button" onClick={() => recordThrow("Circle")} disabled={saving || scoringComplete}><span>●</span><strong>Inside circle</strong><small>+{pointsForOutcome(distance, "Circle")} points</small></button><button type="button" className="ace-button" onClick={() => recordThrow("Ace")} disabled={saving || scoringComplete}><span>★</span><strong>Ace!</strong><small>+{pointsForOutcome(distance, "Ace")} points</small></button></div></div></>}
-            <div className={`throw-strip ${editingScores ? "editing" : ""}`}>{selected.throws.map((item, index) => <div className={item ? item.outcome.toLowerCase() : ""} key={index}><small>{index + 1}</small>{item ? <>{editingScores && <button type="button" className="throw-delete" onClick={() => deleteThrow(index)} disabled={saving} aria-label={`Delete throw ${index + 1}`}>×</button>}<strong>{item.points}</strong><span>{item.distance}ft · {item.outcome}</span></> : <><strong>—</strong><span>Not thrown</span></>}</div>)}</div>
+            <div className={`throw-strip ${editingScores ? "editing" : ""}`}>{selected.throws.map((item, index) => <div className={`${item ? item.outcome.toLowerCase() : ""} ${editingThrow === index ? "throw-selected" : ""}`} key={index}>{editingScores && <button type="button" className="throw-edit-target" aria-label={`Edit throw ${index + 1}`} aria-pressed={editingThrow === index} onClick={() => selectThrowToEdit(index)} disabled={saving} />}<small>{index + 1}</small>{item ? <><strong>{item.points}</strong><span>{distanceLabel(item.distance)} · {item.outcome}</span></> : <><strong>—</strong><span>Not thrown</span></>}</div>)}</div>
           </>}
         </section>
       </section>
@@ -255,6 +284,15 @@ export default function TurkeyShootPage() {
         <div className="event-footer-copy"><small>END OF EVENT TOOLS</small><span>{scoringComplete ? "The event is finalized. Download another copy or reset when ready." : "Finalize the leaderboard and download its CSV backup."}</span></div>
         <div className="event-footer-actions"><button type="button" className="export-trigger" onClick={completeScoring} disabled={saving || (!scoringComplete && !hasScores)}>{saving ? "Completing…" : scoringComplete ? "Download Final CSV ↓" : "End Event"}</button><button type="button" className="reset-trigger" onClick={() => setResetOpen(true)}>Reset event</button></div>
       </footer>
+      <dialog ref={pinDialog} className="reset-dialog pin-dialog" aria-labelledby="pin-title" onCancel={(e) => { e.preventDefault(); finishPin(null); }}>
+        {pinOpen && <><button type="button" className="reset-close" onClick={() => finishPin(null)} aria-label="Close PIN dialog">×</button>
+          <p>SCORING DESK ACCESS</p><h2 id="pin-title">Enter event admin PIN</h2>
+          <p className="reset-warning">Enter the event PIN to save this change. It will be remembered for this tab.</p>
+          <form onSubmit={(e) => { e.preventDefault(); finishPin(String(new FormData(e.currentTarget).get("admin-pin") || "")); }}>
+            <label htmlFor="admin-pin">Admin PIN</label><input id="admin-pin" name="admin-pin" type="password" autoFocus required autoComplete="off" />
+            <div><button type="button" onClick={() => finishPin(null)}>Cancel</button><button type="submit">Continue</button></div>
+          </form></>}
+      </dialog>
       {resetOpen && <div className="reset-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setResetOpen(false); }}>
         <section className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-title">
           <button type="button" className="reset-close" onClick={() => { setResetOpen(false); setResetError(false); }} aria-label="Close reset dialog">×</button>

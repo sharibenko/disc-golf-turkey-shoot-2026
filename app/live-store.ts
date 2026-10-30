@@ -1,7 +1,10 @@
-export const DISTANCES = [200, 250, 300, 350] as const;
+export const DISTANCES = [200, 280, 350, "long-snood"] as const;
 export const THROWS_PER_ROUND = 6;
 export type Distance = (typeof DISTANCES)[number];
-export const POINTS: Record<Distance, number> = { 200: 100, 250: 200, 300: 300, 350: 400 };
+export const POINTS: Record<Distance, number> = { 200: 100, 280: 200, 350: 300, "long-snood": 600 };
+export function distanceLabel(distance: Distance) {
+  return distance === "long-snood" ? "SNOOD" : `${distance}ft`;
+}
 export type ThrowOutcome = "Miss" | "Circle" | "Ace";
 export type ThrowResult = { distance: Distance; outcome: ThrowOutcome; points: number };
 export type Participant = {

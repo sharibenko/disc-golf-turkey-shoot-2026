@@ -40,7 +40,7 @@ export function LeaderboardView({ event, syncError = null, demoControls, footer 
     <header className="leaderboard-header"><div className="event-brand leaderboard-brand"><Image className="leaderboard-logo" src="../ttc-logo-leaderboard.svg" alt="Turkey Target Challenge 2026" width={1691} height={183} unoptimized priority /></div><div className={`live-badge ${isFinal ? "final" : ""}`}><i /> {demoControls ? (isFinal ? "Demo results" : "Demo scoring") : (isFinal ? "Final leaderboard" : "Live scoring")}</div></header>
     <section className="score-reference leaderboard-score-reference" aria-label="Circle hit scoring">
       <span>$10 for 6 Throws</span>
-      {DISTANCES.map((feet) => <div key={feet}><strong>{feet}<small>FT</small></strong><b>{POINTS[feet]} PTS</b><small className="ace-reference"><span className="ace-label">Ace</span>{" "}<span>{POINTS[feet] * 2} PTS</span></small></div>)}
+      {DISTANCES.map((feet) => <div key={feet}><strong>{feet === "long-snood" ? "SN00D" : <>{feet}<small>FT</small></>}</strong><b>{POINTS[feet]} PTS</b><small className="ace-reference"><span className="ace-label">Ace</span>{" "}<span>{POINTS[feet] * 2} PTS</span></small></div>)}
       <p><span className="mobile-entry-price">$10 for 6 Throws | </span>inside 30ft counts</p>
     </section>
     <p className="division-prize-note">Top 3 scores in each division wins a gift card for the price of a turkey.</p>
