@@ -117,6 +117,7 @@ function sanitizeEvent_(input) {
   const outcomes = ["Miss", "Circle", "Ace"];
   const participants = Array.isArray(input.participants) ? input.participants.map((person) => ({
     id: String(person.id || ""),
+    playerId: String(person.playerId || "").slice(0, 200),
     name: String(person.name || "").slice(0, 100),
     email: String(person.email || "").trim().toLowerCase().slice(0, 254),
     joinedAt: String(person.joinedAt || ""),
@@ -131,7 +132,7 @@ function sanitizeEvent_(input) {
         points: item.outcome === "Miss" ? 0 : pointsByDistance[distance] * (item.outcome === "Ace" ? 2 : 1),
       };
     }),
-  })).filter((person) => person.id && person.name && person.email) : [];
+  })).filter((person) => person.id && person.name) : [];
 
   return {
     participants,

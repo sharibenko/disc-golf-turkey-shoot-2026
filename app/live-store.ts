@@ -9,6 +9,7 @@ export type ThrowOutcome = "Miss" | "Circle" | "Ace";
 export type ThrowResult = { distance: Distance; outcome: ThrowOutcome; points: number };
 export type Participant = {
   id: string;
+  playerId?: string;
   name: string;
   email: string;
   joinedAt: string;
@@ -38,10 +39,14 @@ export function normalizeEmail(email?: string | null) {
   return String(email || "").trim().toLocaleLowerCase();
 }
 
+export function playerKey(participant: Participant) {
+  return participant.playerId || (normalizeEmail(participant.email) ? `email:${normalizeEmail(participant.email)}` : `round:${participant.id}`);
+}
+
 export function bestRounds(participants: Participant[]) {
   const bestByEmail = new Map<string, Participant>();
   participants.filter((person) => person.throws.some(Boolean)).forEach((person) => {
-    const key = normalizeEmail(person.email) || `legacy:${person.id}`;
+    const key = playerKey(person);
     const current = bestByEmail.get(key);
     if (!current || totalPoints(person) > totalPoints(current) || (totalPoints(person) === totalPoints(current) && person.joinedAt < current.joinedAt)) {
       bestByEmail.set(key, person);
@@ -51,9 +56,9 @@ export function bestRounds(participants: Participant[]) {
 }
 
 export function roundNumber(participant: Participant, participants: Participant[]) {
-  const email = normalizeEmail(participant.email);
+  const key = playerKey(participant);
   return participants
-    .filter((person) => normalizeEmail(person.email) === email)
+    .filter((person) => playerKey(person) === key)
     .sort((a, b) => a.joinedAt.localeCompare(b.joinedAt) || a.id.localeCompare(b.id))
     .findIndex((person) => person.id === participant.id) + 1;
 }

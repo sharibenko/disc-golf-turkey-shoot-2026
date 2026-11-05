@@ -1,6 +1,12 @@
 import { EMPTY_EVENT, normalizeEmail, THROWS_PER_ROUND, type EventState, type Participant } from "./live-store";
 
 const API_URL = process.env.NEXT_PUBLIC_SHEETS_API_URL?.trim();
+const LOCAL_PREVIEW = process.env.NEXT_PUBLIC_LOCAL_PREVIEW === "true";
+const PREVIEW_KEY = "turkey-shoot-name-only-preview";
+
+function previewEvent(): EventState {
+  return normalizeEvent(JSON.parse(localStorage.getItem(PREVIEW_KEY) || "null"));
+}
 
 export class SheetsApiError extends Error {
   constructor(message: string, readonly code?: string) {
@@ -40,6 +46,7 @@ function normalizeEvent(value: unknown): EventState {
 }
 
 export async function fetchEvent(signal?: AbortSignal): Promise<EventState> {
+  if (LOCAL_PREVIEW) return previewEvent();
   const response = await fetch(endpoint("?action=state"), { cache: "no-store", signal });
   const payload = await response.json();
   if (!response.ok || payload.ok === false) {
@@ -49,6 +56,13 @@ export async function fetchEvent(signal?: AbortSignal): Promise<EventState> {
 }
 
 export async function saveEvent(next: EventState, pin: string): Promise<EventState> {
+  if (LOCAL_PREVIEW) {
+    const current = previewEvent();
+    if (current.revision !== next.revision) throw new SheetsApiError("Scores changed in another tab. Please try again.", "CONFLICT");
+    const persisted = normalizeEvent({ ...next, revision: current.revision + 1 });
+    localStorage.setItem(PREVIEW_KEY, JSON.stringify(persisted));
+    return persisted;
+  }
   const response = await fetch(endpoint(), {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -59,6 +73,12 @@ export async function saveEvent(next: EventState, pin: string): Promise<EventSta
     throw new SheetsApiError(payload.error || "Could not save event data.", payload.code);
   }
   const persisted = normalizeEvent(payload.event);
+  if (next.participants.some((person) => {
+    const saved = persisted.participants.find((item) => item.id === person.id);
+    return !saved || (person.playerId && person.playerId !== saved.playerId);
+  })) {
+    throw new SheetsApiError("The Google Sheets backend must be updated to support name-only signup.", "PLAYER_ID_MISMATCH");
+  }
   const scoringChanged = next.participants.some((participant) => {
     const saved = persisted.participants.find((person) => person.id === participant.id);
     return participant.throws.some((item, index) => {

@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { bestRounds, distanceLabel, CHANNEL_NAME, DISTANCES, EMPTY_EVENT, normalizeEmail, POINTS, pointsForOutcome, roundNumber, THROWS_PER_ROUND, totalPoints, type Distance, type EventState, type ThrowOutcome } from "./live-store";
+import { bestRounds, distanceLabel, CHANNEL_NAME, DISTANCES, EMPTY_EVENT, normalizeEmail, playerKey, POINTS, pointsForOutcome, roundNumber, THROWS_PER_ROUND, totalPoints, type Distance, type EventState, type ThrowOutcome } from "./live-store";
 import { fetchEvent, saveEvent, SheetsApiError } from "./sheets-api";
 
 export default function TurkeyShootPage() {
@@ -64,7 +64,7 @@ export default function TurkeyShootPage() {
   async function publish(next: EventState, suppliedPin?: string) {
     if (saveInFlight.current) return null;
     saveInFlight.current = true;
-    const savedPin = sessionStorage.getItem("turkey-shoot-admin-pin");
+    const savedPin = process.env.NEXT_PUBLIC_LOCAL_PREVIEW === "true" ? "preview" : sessionStorage.getItem("turkey-shoot-admin-pin");
     const pin = suppliedPin ?? savedPin ?? await new Promise<string | null>((resolve) => {
       pinResolver.current = resolve;
       setPinOpen(true);
@@ -103,9 +103,8 @@ export default function TurkeyShootPage() {
     if (event.status === "complete") return;
     const form = e.currentTarget;
     const name = String(new FormData(form).get("name") || "").trim();
-    const email = normalizeEmail(String(new FormData(form).get("email") || ""));
-    if (!name || !email) return;
-    const participant = { id: crypto.randomUUID(), name, email, joinedAt: new Date().toISOString(), completedAt: null, throws: Array(THROWS_PER_ROUND).fill(null) };
+    if (!name) return;
+    const participant = { id: crypto.randomUUID(), playerId: crypto.randomUUID(), name, email: "", joinedAt: new Date().toISOString(), completedAt: null, throws: Array(THROWS_PER_ROUND).fill(null) };
     const persisted = await publish({ ...event, participants: [participant, ...event.participants] });
     if (!persisted) return;
     form.reset();
@@ -157,6 +156,7 @@ export default function TurkeyShootPage() {
     if (!selected || event.status === "complete" || selected.throws.filter(Boolean).length !== THROWS_PER_ROUND) return;
     const participant = {
       id: crypto.randomUUID(),
+      playerId: playerKey(selected),
       name: selected.name,
       email: normalizeEmail(selected.email),
       joinedAt: new Date().toISOString(),
@@ -243,6 +243,7 @@ export default function TurkeyShootPage() {
 
   return (
     <main className="event-shell">
+      {process.env.NEXT_PUBLIC_LOCAL_PREVIEW === "true" && <p role="status">Local test preview — scores stay in this browser. Live event data is unchanged.</p>}
       <header className="event-header">
         <div className="event-brand"><div><strong>Turkey Target Challenge 2026</strong><small>Live scoring desk</small></div></div>
         <div className="header-actions"><Link href="/display" target="_blank">Open leaderboard ↗</Link></div>
@@ -252,7 +253,7 @@ export default function TurkeyShootPage() {
 
       <section className="scoring-workspace">
         <aside className="signup-panel">
-          <form onSubmit={addParticipant} className="signup-form"><div className="signup-fields-row"><div className="signup-field"><label htmlFor="participant-name">Player name</label><input id="participant-name" name="name" required autoComplete="name" placeholder={scoringComplete ? "Scoring complete" : "Display name…"} disabled={scoringComplete || saving} /></div><div className="signup-field"><label htmlFor="participant-email">Email address</label><div className="signup-submit-row"><input id="participant-email" name="email" type="email" required autoComplete="email" placeholder={scoringComplete ? "Scoring complete" : "player@example.com"} disabled={scoringComplete || saving} /><button type="submit" aria-label="Add paid round" disabled={scoringComplete || saving}>+</button></div></div></div></form>
+          <form onSubmit={addParticipant} className="signup-form"><label htmlFor="participant-name">Player name</label><div className="signup-submit-row"><input id="participant-name" name="name" required autoComplete="name" placeholder={scoringComplete ? "Scoring complete" : "Display name…"} disabled={scoringComplete || saving} /><button type="submit" aria-label="Add paid round" disabled={scoringComplete || saving}>+</button></div></form>
           <div className="queue-tools">
             <label><span>Search players</span><input type="search" value={queueSearch} onChange={(event) => setQueueSearch(event.target.value)} placeholder="Search by name…" /></label>
             <label><span>Show players</span><select value={queueFilter} onChange={(event) => setQueueFilter(event.target.value as typeof queueFilter)}><option value="all">All players</option><option value="active">Active rounds</option><option value="finished">Finished rounds</option></select></label>
@@ -262,7 +263,7 @@ export default function TurkeyShootPage() {
             {visibleParticipants.map((person) => {
               const count = person.throws.filter(Boolean).length;
               const paidRound = roundNumber(person, event.participants);
-              return <button type="button" className={`queue-person ${selectedId === person.id ? "selected" : ""}`} key={person.id} onClick={() => { setSelectedId(person.id); setQueueFocused(true); setEditingScores(false); setEditingThrow(null); }}><span className="queue-number">{String(signupNumberById.get(person.id) || 0).padStart(2, "0")}</span><span className="queue-name"><strong>{person.name} · Round {paidRound}</strong><small>{person.email}</small><small>{count === THROWS_PER_ROUND ? `${totalPoints(person)} points · Finished${person.completedAt ? ` · ${new Date(person.completedAt).toLocaleString()}` : ""}` : count ? `${count}/${THROWS_PER_ROUND} throws recorded` : "Waiting to throw"}</small></span><b>{count === THROWS_PER_ROUND ? "✓" : "→"}</b></button>;
+              return <button type="button" className={`queue-person ${selectedId === person.id ? "selected" : ""}`} key={person.id} onClick={() => { setSelectedId(person.id); setQueueFocused(true); setEditingScores(false); setEditingThrow(null); }}><span className="queue-number">{String(signupNumberById.get(person.id) || 0).padStart(2, "0")}</span><span className="queue-name"><strong>{person.name} · Round {paidRound}</strong>{person.email && <small>{person.email}</small>}<small>{count === THROWS_PER_ROUND ? `${totalPoints(person)} points · Finished${person.completedAt ? ` · ${new Date(person.completedAt).toLocaleString()}` : ""}` : count ? `${count}/${THROWS_PER_ROUND} throws recorded` : "Waiting to throw"}</small></span><b>{count === THROWS_PER_ROUND ? "✓" : "→"}</b></button>;
             })}
             {event.participants.length === 0 && <div className="queue-empty"><span>◎</span><p>New participants will line up here.</p></div>}
             {event.participants.length > 0 && visibleParticipants.length === 0 && <div className="queue-empty"><span>⌕</span><p>{queueSearch ? `No players match “${queueSearch}”.` : queueFilter === "active" ? "No active rounds." : queueFilter === "finished" ? "No finished rounds yet." : "No players to display."}</p></div>}

@@ -42,7 +42,7 @@ test("ships the Google Sheets client instead of browser event storage", async ()
   assert.doesNotMatch(page, /localStorage/);
   assert.doesNotMatch(display, /localStorage/);
   assert.match(page, /Search players/);
-  assert.match(page, /name="email"/);
+  assert.doesNotMatch(page, /name="email"/);
   assert.match(page, /bestRounds/);
   assert.match(page, /Show players/);
   assert.match(page, /All players/);
