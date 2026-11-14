@@ -73,6 +73,9 @@ export async function saveEvent(next: EventState, pin: string): Promise<EventSta
     throw new SheetsApiError(payload.error || "Could not save event data.", payload.code);
   }
   const persisted = normalizeEvent(payload.event);
+  if (persisted.participants.length !== next.participants.length || persisted.participants.some((saved) => !next.participants.some((person) => person.id === saved.id))) {
+    throw new SheetsApiError("The server did not save the requested round list. Reload and try again.", "ROUND_LIST_MISMATCH");
+  }
   if (next.participants.some((person) => {
     const saved = persisted.participants.find((item) => item.id === person.id);
     return !saved || (person.playerId && person.playerId !== saved.playerId);

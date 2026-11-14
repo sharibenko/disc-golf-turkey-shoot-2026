@@ -9,6 +9,13 @@ export default function TurkeyShootPage() {
   const [event, setEvent] = useState<EventState>(EMPTY_EVENT);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [distance, setDistance] = useState<Distance>(200);
+  const [removal, setRemoval] = useState<{ id: string; name: string; round: number; points: number; revision: number } | null>(null);
+  const [removalError, setRemovalError] = useState<string | null>(null);
+  const removalDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (removal) removalDialog.current?.showModal();
+    else removalDialog.current?.close();
+  }, [removal]);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetError, setResetError] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -152,6 +159,29 @@ export default function TurkeyShootPage() {
     setDistance(selected.throws[throwIndex]?.distance ?? 200);
   }
 
+  async function removeRound(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!removal || saving || saveInFlight.current || event.status === "complete") return;
+    if (event.revision !== removal.revision) {
+      setRemovalError("Scores changed while this confirmation was open. Cancel and select the round again.");
+      return;
+    }
+    const persisted = await publish({ ...event, participants: event.participants.filter((person) => person.id !== removal.id) });
+    if (!persisted) {
+      setRemovalError("The round was not removed. Check the connection or PIN and try again.");
+      return;
+    }
+    if (persisted.participants.some((person) => person.id === removal.id)) {
+      setRemovalError("The server did not remove this round. Please reload and try again.");
+      return;
+    }
+    setRemoval(null);
+    setSelectedId(null);
+    setQueueFocused(false);
+    setEditingScores(false);
+    setEditingThrow(null);
+  }
+
   async function startAnotherRound() {
     if (!selected || event.status === "complete" || selected.throws.filter(Boolean).length !== THROWS_PER_ROUND) return;
     const participant = {
@@ -278,6 +308,7 @@ export default function TurkeyShootPage() {
             {editingScores && <p className="throw-edit-instructions" role="status">{editingThrow === null ? "Choose a throw below to edit." : `Editing throw ${editingThrow + 1}: choose its basket and corrected result.`}</p>}{((!editingScores && throwCount < THROWS_PER_ROUND) || editingThrow !== null) && <><div className="distance-picker"><p>1. Choose basket distance</p><div>{DISTANCES.map((feet) => <button type="button" className={distance === feet ? "active" : ""} onClick={() => setDistance(feet)} disabled={saving || scoringComplete} key={feet}><strong>{feet === "long-snood" ? distanceLabel(feet) : <>{feet}<small>ft</small></>}</strong><span>{POINTS[feet]} Points</span></button>)}</div></div>
             <div className="outcome-picker" aria-busy={saving}><p aria-live="polite">{scoringComplete ? "Scoring is complete" : saving ? "Saving…" : "2. Record result"}</p><div><button type="button" className="miss-button" onClick={() => recordThrow("Miss")} disabled={saving || scoringComplete}><span>×</span><strong>Miss</strong><small>0 points</small></button><button type="button" className="circle-button" onClick={() => recordThrow("Circle")} disabled={saving || scoringComplete}><span>●</span><strong>Inside circle</strong><small>+{pointsForOutcome(distance, "Circle")} points</small></button><button type="button" className="ace-button" onClick={() => recordThrow("Ace")} disabled={saving || scoringComplete}><span>★</span><strong>Ace!</strong><small>+{pointsForOutcome(distance, "Ace")} points</small></button></div></div></>}
             <div className={`throw-strip ${editingScores ? "editing" : ""}`}>{selected.throws.map((item, index) => <div className={`${item ? item.outcome.toLowerCase() : ""} ${editingThrow === index ? "throw-selected" : ""}`} key={index}>{editingScores && <button type="button" className="throw-edit-target" aria-label={`Edit throw ${index + 1}`} aria-pressed={editingThrow === index} onClick={() => selectThrowToEdit(index)} disabled={saving} />}<small>{index + 1}</small>{item ? <><strong>{item.points}</strong><span>{distanceLabel(item.distance)} · {item.outcome}</span></> : <><strong>—</strong><span>Not thrown</span></>}</div>)}</div>
+            <button type="button" className="remove-round-trigger" disabled={saving || scoringComplete} onClick={() => { setRemovalError(null); setRemoval({ id: selected.id, name: selected.name, round: roundNumber(selected, event.participants), points: totalPoints(selected), revision: event.revision }); }}>Remove round</button>
           </>}
         </section>
       </section>
@@ -285,6 +316,16 @@ export default function TurkeyShootPage() {
         <div className="event-footer-copy"><small>END OF EVENT TOOLS</small><span>{scoringComplete ? "The event is finalized. Download another copy or reset when ready." : "Finalize the leaderboard and download its CSV backup."}</span></div>
         <div className="event-footer-actions"><button type="button" className="export-trigger" onClick={completeScoring} disabled={saving || (!scoringComplete && !hasScores)}>{saving ? "Completing…" : scoringComplete ? "Download Final CSV ↓" : "End Event"}</button><button type="button" className="reset-trigger" onClick={() => setResetOpen(true)}>Reset event</button></div>
       </footer>
+      <dialog ref={removalDialog} className="reset-dialog remove-round-dialog" aria-labelledby="remove-round-title" onCancel={(e) => { e.preventDefault(); if (!saving && !pinOpen) setRemoval(null); }}>
+        {removal && <><p>REMOVE ROUND</p><h2 id="remove-round-title">Remove this round?</h2>
+          <p className="reset-warning"><strong>{removal.name} · Round {removal.round} · {removal.points} points</strong></p>
+          <p className="reset-warning">This permanently removes only this round and its throws from the saved event. Other rounds remain. The leaderboard will recalculate using each player’s best remaining round. This cannot be undone.</p>
+          <form onSubmit={removeRound}>
+            {removalError && <span className="reset-error" role="alert">{removalError}</span>}
+            <div><button type="button" autoFocus disabled={saving || pinOpen} onClick={() => setRemoval(null)}>Cancel</button><button type="submit" disabled={saving || pinOpen || event.revision !== removal.revision}>{saving ? "Removing…" : "Remove this round"}</button></div>
+            {event.revision !== removal.revision && <p role="alert">Scores changed. Cancel and select the round again before removing it.</p>}
+          </form></>}
+      </dialog>
       <dialog ref={pinDialog} className="reset-dialog pin-dialog" aria-labelledby="pin-title" onCancel={(e) => { e.preventDefault(); finishPin(null); }}>
         {pinOpen && <><button type="button" className="reset-close" onClick={() => finishPin(null)} aria-label="Close PIN dialog">×</button>
           <p>SCORING DESK ACCESS</p><h2 id="pin-title">Enter event admin PIN</h2>

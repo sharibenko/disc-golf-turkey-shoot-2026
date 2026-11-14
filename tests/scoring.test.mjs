@@ -46,3 +46,28 @@ test("scoring desk and Sheets agree on every basket and outcome", async () => {
     }
   }
 });
+
+test("removing a best round persists the deletion and restores the previous score", async () => {
+  const source = await readFile(new URL("../app/live-store.ts", import.meta.url), "utf8");
+  const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const { bestRounds } = await import(`data:text/javascript;base64,${Buffer.from(js).toString("base64")}`);
+  const round = (id, playerId, outcome) => ({id,playerId,name:"Test",email:"",joinedAt:id,completedAt:"2026-11-14",throws:Array.from({length:6},()=>({distance:200,outcome,points:outcome === "Ace" ? 200 :100}))});
+  const rounds=[round("r1","p1","Circle"),round("r2","p1","Ace"),round("r3","p2","Circle")];
+  let stored={participants:rounds,revision:8,status:"live",completedAt:null};
+  const ctx=vm.createContext({});
+  vm.runInContext(await readFile(new URL("../google-apps-script/Code.gs",import.meta.url),"utf8"),ctx);
+  ctx.readState_=()=>structuredClone(stored);
+  ctx.writeState_=(event)=>{stored=structuredClone(event)};
+  ctx.getRequiredProperty_=()=>"pin";
+  ctx.json_=value=>value;
+  ctx.LockService={getScriptLock:()=>({waitLock(){},hasLock:()=>true,releaseLock(){}})};
+  const submit=(expectedRevision,event)=>ctx.doPost({postData:{contents:JSON.stringify({action:"save",pin:"pin",expectedRevision,event})}});
+  assert.equal(bestRounds(rounds)[0].id,"r2");
+  assert.equal(submit(8,{...stored,participants:rounds.filter(p=>p.id!=="r2")}).ok,true);
+  assert.deepEqual(stored.participants.map(p=>p.id),["r1","r3"]);
+  assert.deepEqual(stored.participants[0].throws,rounds[0].throws);
+  assert.equal(stored.revision,9);
+  assert.equal(bestRounds(stored.participants).find(p=>p.playerId==="p1").id,"r1");
+  assert.equal(submit(8,{...stored,participants:[]}).code,"REVISION_CONFLICT");
+  assert.equal(stored.participants.length,2);
+});
